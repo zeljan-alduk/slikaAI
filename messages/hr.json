@@ -1,0 +1,74 @@
+{
+  "meta": {
+    "title": "slikaAI — AI obnova i uređivanje fotografija",
+    "description": "Učitajte fotografiju, opišite promjenu običnim riječima i pustite AI da je preoblikuje ili obnovi."
+  },
+  "brand": {
+    "tagline": "Razvijte svoje fotografije riječima"
+  },
+  "nav": {
+    "language": "Jezik"
+  },
+  "hero": {
+    "kicker": "Tamna komora, iznova osmišljena",
+    "title": "Preoblikujte bilo koju fotografiju jednom rečenicom.",
+    "subtitle": "Učitajte sliku i opišite što želite promijeniti — obnovite stare fotografije, uklonite objekte ili iznova osmislite prizor. Pokreće FLUX Kontext."
+  },
+  "dropzone": {
+    "headline": "Ispustite fotografiju za početak",
+    "hint": "ili kliknite za odabir — JPG, PNG ili WebP, do 20 MB",
+    "drophere": "Pustite za učitavanje fotografije",
+    "tooLarge": "Ta je slika veća od 20 MB. Pokušajte s manjom datotekom.",
+    "wrongType": "Odaberite slikovnu datoteku (JPG, PNG ili WebP)."
+  },
+  "modes": {
+    "label": "Način uređivanja",
+    "whole": "Cijela slika",
+    "wholeHint": "Preoblikujte cijelu fotografiju prema vašem opisu",
+    "brush": "Označi područje",
+    "brushHint": "Prebojajte točno mjesto koje želite promijeniti"
+  },
+  "brush": {
+    "size": "Veličina kista",
+    "clear": "Obriši masku",
+    "instruction": "Prebojajte područje koje želite promijeniti, zatim opišite zamjenu."
+  },
+  "prompt": {
+    "label": "Opišite promjenu",
+    "placeholderWhole": "npr. obnovi ovu izblijedjelu fotografiju i vrati prirodne boje",
+    "placeholderBrush": "npr. zamijeni ovo vedrim plavim nebom",
+    "submit": "Preoblikuj",
+    "submitting": "Razvijam…",
+    "needImage": "Najprije učitajte fotografiju.",
+    "needPrompt": "Opišite željenu promjenu.",
+    "needMask": "Najprije prebojajte područje koje želite promijeniti."
+  },
+  "result": {
+    "title": "Rezultat",
+    "before": "Prije",
+    "after": "Poslije",
+    "download": "Preuzmi",
+    "useAsBase": "Nastavi uređivati",
+    "startOver": "Počni iznova",
+    "dragHint": "Povucite za usporedbu"
+  },
+  "suggestions": {
+    "label": "Trebate ideje?",
+    "items": [
+      "Obnovi ovu staru, izgrebanu fotografiju",
+      "Ukloni ljude u pozadini",
+      "Pretvori dan u zlatni zalazak sunca",
+      "Oboji ovu crno-bijelu fotografiju",
+      "Neka izgleda kao analogna fotografija"
+    ]
+  },
+  "errors": {
+    "noKey": "Usluga za obradu slika još nije postavljena. Dodajte svoj FAL_KEY u .env.local da omogućite uređivanje.",
+    "generic": "Došlo je do pogreške pri uređivanju. Pokušajte ponovno.",
+    "tooBig": "Slika je prevelika za obradu."
+  },
+  "footer": {
+    "built": "Izrađeno uz FLUX Kontext na fal.ai",
+    "privacy": "Vaše se fotografije šalju sigurno na obradu i ova ih aplikacija ne pohranjuje."
+  }
+}

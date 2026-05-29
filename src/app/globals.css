@@ -1,0 +1,115 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ink: #0a0807;
+  --color-ink-soft: #100d0b;
+  --color-surface: #17120f;
+  --color-surface-2: #1f1813;
+  --color-line: #2c2420;
+  --color-line-soft: #221b17;
+  --color-paper: #f4ece0;
+  --color-paper-dim: #cdbfae;
+  --color-muted: #8b7d6e;
+  --color-safelight: #f0894a;
+  --color-safelight-deep: #c2410c;
+  --color-ember: #e2492b;
+
+  --font-display: var(--font-fraunces), Georgia, serif;
+  --font-body: var(--font-hanken), system-ui, sans-serif;
+
+  --radius-xl2: 1.4rem;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  background-color: var(--color-ink);
+  color: var(--color-paper);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Warm vignette + safelight glow behind everything */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  background:
+    radial-gradient(120% 90% at 78% -10%, rgba(240, 137, 74, 0.16), transparent 55%),
+    radial-gradient(90% 70% at 10% 110%, rgba(194, 65, 12, 0.1), transparent 60%),
+    linear-gradient(180deg, #0a0807 0%, #0c0908 100%);
+}
+
+/* Film grain */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.05;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+::selection {
+  background: var(--color-safelight);
+  color: #1a0f08;
+}
+
+* {
+  scrollbar-color: var(--color-line) transparent;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes glow-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.rise {
+  animation: rise 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.developing {
+  background: linear-gradient(
+    100deg,
+    var(--color-surface) 20%,
+    rgba(240, 137, 74, 0.16) 40%,
+    var(--color-surface) 60%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.6s linear infinite;
+}
+
+.dot-pulse {
+  animation: glow-pulse 1.4s ease-in-out infinite;
+}

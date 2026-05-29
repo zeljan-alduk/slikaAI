@@ -1,0 +1,74 @@
+{
+  "meta": {
+    "title": "slikaAI — AI photo recovery & editing",
+    "description": "Upload a photo, describe the change in plain words, and let AI transform or restore it."
+  },
+  "brand": {
+    "tagline": "Develop your photos with words"
+  },
+  "nav": {
+    "language": "Language"
+  },
+  "hero": {
+    "kicker": "Darkroom, reimagined",
+    "title": "Rewrite any photo with a sentence.",
+    "subtitle": "Drop in an image, describe what you want changed — restore old prints, remove objects, or reinvent the scene. Powered by FLUX Kontext."
+  },
+  "dropzone": {
+    "headline": "Drop a photo to begin",
+    "hint": "or click to browse — JPG, PNG or WebP, up to 20 MB",
+    "drophere": "Release to load your photo",
+    "tooLarge": "That image is larger than 20 MB. Try a smaller file.",
+    "wrongType": "Please choose an image file (JPG, PNG or WebP)."
+  },
+  "modes": {
+    "label": "Edit mode",
+    "whole": "Whole image",
+    "wholeHint": "Re-imagine the entire photo from your prompt",
+    "brush": "Brush an area",
+    "brushHint": "Paint over the exact spot you want to change"
+  },
+  "brush": {
+    "size": "Brush size",
+    "clear": "Clear mask",
+    "instruction": "Paint over the area you want to change, then describe the replacement."
+  },
+  "prompt": {
+    "label": "Describe the change",
+    "placeholderWhole": "e.g. restore this faded photo and bring back natural colors",
+    "placeholderBrush": "e.g. replace this with a clear blue sky",
+    "submit": "Transform",
+    "submitting": "Developing…",
+    "needImage": "Upload a photo first.",
+    "needPrompt": "Describe the change you want.",
+    "needMask": "Brush over an area to change first."
+  },
+  "result": {
+    "title": "Result",
+    "before": "Before",
+    "after": "After",
+    "download": "Download",
+    "useAsBase": "Edit this further",
+    "startOver": "Start over",
+    "dragHint": "Drag to compare"
+  },
+  "suggestions": {
+    "label": "Need ideas?",
+    "items": [
+      "Restore this old, scratched photo",
+      "Remove the people in the background",
+      "Turn day into a golden sunset",
+      "Colorize this black and white photo",
+      "Make it look like a film photograph"
+    ]
+  },
+  "errors": {
+    "noKey": "The image service isn't configured yet. Add your FAL_KEY to .env.local to enable editing.",
+    "generic": "Something went wrong while editing. Please try again.",
+    "tooBig": "The image is too large to process."
+  },
+  "footer": {
+    "built": "Built with FLUX Kontext on fal.ai",
+    "privacy": "Your photos are sent securely for processing and are not stored by this app."
+  }
+}
