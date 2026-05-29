@@ -65,28 +65,47 @@ iterate) works at zero cost.
 > editing use **ComfyUI**, which runs the open-weights **FLUX.1 Kontext [dev]** —
 > the same model family as the hosted `fal` provider.
 
-1. Install [ComfyUI](https://github.com/comfyanonymous/ComfyUI) and download the
-   FLUX.1 Kontext dev models (UNet, `clip_l`, `t5xxl`, `ae` VAE) into the matching
-   `models/` folders. For brush/mask inpainting, also grab **FLUX.1 Fill dev**.
-2. Start ComfyUI (defaults to `http://127.0.0.1:8188`).
-3. In `.env.local`:
+> **Apple Silicon note (important):** fp8 weights (`*_fp8_*.safetensors`) do **not**
+> run on the Mac MPS backend — you'll get `Trying to convert Float8_e4m3fn to the
+> MPS backend`. Use **GGUF** (recommended — small, fast-ish, MPS-friendly) or full
+> **bf16**. The bundled templates are configured for GGUF.
+
+The bundled templates target a **GGUF** setup (Mac-friendly, ungated downloads):
+
+1. Install [ComfyUI](https://github.com/comfyanonymous/ComfyUI) and the
+   [ComfyUI-GGUF](https://github.com/city96/ComfyUI-GGUF) custom node
+   (`git clone` into `custom_nodes/`, then `pip install -r requirements.txt` into
+   ComfyUI's venv), and restart ComfyUI.
+2. Download into `models/`:
+   - `unet/flux1-kontext-dev-Q4_K_M.gguf` — [QuantStack/FLUX.1-Kontext-dev-GGUF](https://huggingface.co/QuantStack/FLUX.1-Kontext-dev-GGUF)
+   - `text_encoders/t5-v1_1-xxl-encoder-Q5_K_M.gguf` — [city96/t5-v1_1-xxl-encoder-gguf](https://huggingface.co/city96/t5-v1_1-xxl-encoder-gguf)
+   - `text_encoders/clip_l.safetensors` — [comfyanonymous/flux_text_encoders](https://huggingface.co/comfyanonymous/flux_text_encoders)
+   - `vae/ae.safetensors` — the FLUX VAE (e.g. Comfy-Org's Lumina repackage)
+   - For brush/mask inpainting, also grab a **FLUX.1 Fill dev GGUF** into `unet/`.
+3. Start ComfyUI and set `.env.local`:
    ```bash
    PROVIDER=comfyui
-   COMFYUI_URL=http://127.0.0.1:8188
+   COMFYUI_URL=http://127.0.0.1:8000   # the desktop app uses :8000; classic uses :8188
    ```
-4. The bundled workflow templates live in [`comfyui/`](./comfyui). They use four
-   placeholders the server injects per request: `__PROMPT__`, `__IMAGE__`,
-   `__MASK__`, `__SEED__`. **Edit the model filenames** in those files to match
-   your install — or build a workflow in the ComfyUI UI, export it with
-   **Save (API Format)**, drop in the four placeholders, and point
+4. The templates in [`comfyui/`](./comfyui) use four placeholders the server
+   injects per request: `__PROMPT__`, `__IMAGE__`, `__MASK__`, `__SEED__`. Adjust
+   model filenames to match your install — or export your own workflow from the
+   ComfyUI UI with **Save (API Format)**, add the placeholders, and point
    `COMFYUI_EDIT_WORKFLOW` / `COMFYUI_INPAINT_WORKFLOW` at it.
 
-How the ComfyUI provider works: it uploads the image (and mask) via
-`/upload/image`, injects the placeholders, queues the graph at `/prompt`, polls
-`/history/{id}`, then fetches the result from `/view` and returns it as a data URL.
+How the provider works: it uploads the image (and mask) via `/upload/image`,
+strips annotation keys, injects the placeholders, queues the graph at `/prompt`,
+polls `/history/{id}`, then fetches the result from `/view` as a data URL.
+`COMFYUI_TIMEOUT_MS` (default 600000) bounds the wait.
 
-> On Apple Silicon, **Draw Things** is an easier local alternative — wiring it as
-> a fourth provider is straightforward following the same pattern.
+**Speed on Apple Silicon.** FLUX Kontext is compute-heavy; expect **minutes per
+edit**, not seconds. The edit template trades quality for speed by scaling the
+working image to ~0.5 MP (`ImageScaleToTotalPixels`) and sampling 12 steps —
+tune `megapixels` / `steps` in [`comfyui/flux-kontext-edit.json`](./comfyui/flux-kontext-edit.json).
+A FLUX turbo/hyper LoRA (4–8 steps) speeds things up further.
+
+> **Draw Things** (Mac-native, Apple Silicon) is an easier local alternative —
+> wiring it as a fourth provider follows the same pattern.
 
 ### Paid / hosted — fal.ai
 

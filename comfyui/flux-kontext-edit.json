@@ -1,5 +1,5 @@
 {
-  "_comment": "slikaAI whole-image edit workflow — FLUX.1 Kontext [dev], ComfyUI API format. Placeholders __PROMPT__, __IMAGE__ and __SEED__ are filled in at request time. Adjust the model filenames in nodes 37/38/39 to match your ComfyUI install, or re-export your own working Kontext workflow via 'Save (API Format)' and keep these placeholder values.",
+  "_comment": "slikaAI whole-image edit workflow — FLUX.1 Kontext [dev] GGUF (Apple Silicon / MPS friendly), ComfyUI API format. Requires the ComfyUI-GGUF custom node. Placeholders __PROMPT__, __IMAGE__ and __SEED__ are filled in at request time. Adjust model filenames in nodes 37/38/39 to match your install. NOTE: fp8 weights do NOT run on Apple Silicon (MPS) — use GGUF or bf16.",
   "6": {
     "class_type": "CLIPTextEncode",
     "inputs": { "text": "__PROMPT__", "clip": ["38", 0] }
@@ -12,7 +12,7 @@
     "class_type": "KSampler",
     "inputs": {
       "seed": "__SEED__",
-      "steps": 20,
+      "steps": 12,
       "cfg": 1,
       "sampler_name": "euler",
       "scheduler": "simple",
@@ -28,19 +28,17 @@
     "inputs": { "guidance": 2.5, "conditioning": ["177", 0] }
   },
   "37": {
-    "class_type": "UNETLoader",
+    "class_type": "UnetLoaderGGUF",
     "inputs": {
-      "unet_name": "flux1-dev-kontext_fp8_scaled.safetensors",
-      "weight_dtype": "default"
+      "unet_name": "flux1-kontext-dev-Q4_K_M.gguf"
     }
   },
   "38": {
-    "class_type": "DualCLIPLoader",
+    "class_type": "DualCLIPLoaderGGUF",
     "inputs": {
       "clip_name1": "clip_l.safetensors",
-      "clip_name2": "t5xxl_fp8_e4m3fn_scaled.safetensors",
-      "type": "flux",
-      "device": "default"
+      "clip_name2": "t5-v1_1-xxl-encoder-Q5_K_M.gguf",
+      "type": "flux"
     }
   },
   "39": {
@@ -56,8 +54,8 @@
     "inputs": { "conditioning": ["6", 0] }
   },
   "42_scale": {
-    "class_type": "FluxKontextImageScale",
-    "inputs": { "image": ["142", 0] }
+    "class_type": "ImageScaleToTotalPixels",
+    "inputs": { "image": ["142", 0], "upscale_method": "lanczos", "megapixels": 0.5, "resolution_steps": 1 }
   },
   "142": {
     "class_type": "LoadImage",

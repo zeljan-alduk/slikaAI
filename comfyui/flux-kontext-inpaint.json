@@ -1,5 +1,5 @@
 {
-  "_comment": "slikaAI brush/mask inpaint workflow — FLUX.1 Fill [dev], ComfyUI API format. Placeholders __PROMPT__, __IMAGE__, __MASK__ and __SEED__ are filled at request time. The mask is a white-on-black PNG (white = area to change), loaded via LoadImageMask using the red channel. Adjust model filenames (nodes 37/38/39) to match your install. Flux Fill dev is the proper local model for masked inpainting; swap in your own exported workflow if you prefer.",
+  "_comment": "slikaAI brush/mask inpaint workflow — FLUX.1 Fill [dev] GGUF, ComfyUI API format. Requires the ComfyUI-GGUF custom node AND a Flux Fill GGUF model (e.g. QuantStack/FLUX.1-Fill-dev-GGUF -> flux1-fill-dev-Q4_K_M.gguf in models/unet). Placeholders __PROMPT__, __IMAGE__, __MASK__, __SEED__ are filled at request time. Mask is white-on-black PNG (white = area to change), loaded via LoadImageMask red channel.",
   "6": {
     "class_type": "CLIPTextEncode",
     "inputs": { "text": "__PROMPT__", "clip": ["38", 0] }
@@ -9,19 +9,17 @@
     "inputs": { "text": "", "clip": ["38", 0] }
   },
   "37": {
-    "class_type": "UNETLoader",
+    "class_type": "UnetLoaderGGUF",
     "inputs": {
-      "unet_name": "flux1-fill-dev.safetensors",
-      "weight_dtype": "default"
+      "unet_name": "flux1-fill-dev-Q4_K_M.gguf"
     }
   },
   "38": {
-    "class_type": "DualCLIPLoader",
+    "class_type": "DualCLIPLoaderGGUF",
     "inputs": {
       "clip_name1": "clip_l.safetensors",
-      "clip_name2": "t5xxl_fp8_e4m3fn_scaled.safetensors",
-      "type": "flux",
-      "device": "default"
+      "clip_name2": "t5-v1_1-xxl-encoder-Q5_K_M.gguf",
+      "type": "flux"
     }
   },
   "39": {

@@ -10,7 +10,9 @@ const EDIT_WORKFLOW =
   process.env.COMFYUI_EDIT_WORKFLOW || "comfyui/flux-kontext-edit.json";
 const INPAINT_WORKFLOW =
   process.env.COMFYUI_INPAINT_WORKFLOW || "comfyui/flux-kontext-inpaint.json";
-const TIMEOUT_MS = 120_000;
+// Sampling on Apple Silicon is slow (minutes), and the first run also loads the
+// model into memory. Generous default; override with COMFYUI_TIMEOUT_MS.
+const TIMEOUT_MS = Number(process.env.COMFYUI_TIMEOUT_MS) || 600_000;
 
 type ComfyWorkflow = Record<string, unknown>;
 
@@ -59,6 +61,12 @@ export async function runComfy(input: EditInput): Promise<EditOutput> {
     workflow = JSON.parse(raw) as ComfyWorkflow;
   } catch {
     throw new Error(`Could not read ComfyUI workflow at ${wfPath}`);
+  }
+
+  // Strip annotation keys (e.g. "_comment") — ComfyUI treats every top-level
+  // key as a node and 500s on anything without a class_type.
+  for (const key of Object.keys(workflow)) {
+    if (key.startsWith("_")) delete workflow[key];
   }
 
   const imageName = await uploadImage(input.image, "slika-input.png");
