@@ -1,0 +1,77 @@
+{
+  "_comment": "slikaAI brush/mask inpaint workflow — FLUX.1 Fill [dev], ComfyUI API format. Placeholders __PROMPT__, __IMAGE__, __MASK__ and __SEED__ are filled at request time. The mask is a white-on-black PNG (white = area to change), loaded via LoadImageMask using the red channel. Adjust model filenames (nodes 37/38/39) to match your install. Flux Fill dev is the proper local model for masked inpainting; swap in your own exported workflow if you prefer.",
+  "6": {
+    "class_type": "CLIPTextEncode",
+    "inputs": { "text": "__PROMPT__", "clip": ["38", 0] }
+  },
+  "7": {
+    "class_type": "CLIPTextEncode",
+    "inputs": { "text": "", "clip": ["38", 0] }
+  },
+  "37": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "flux1-fill-dev.safetensors",
+      "weight_dtype": "default"
+    }
+  },
+  "38": {
+    "class_type": "DualCLIPLoader",
+    "inputs": {
+      "clip_name1": "clip_l.safetensors",
+      "clip_name2": "t5xxl_fp8_e4m3fn_scaled.safetensors",
+      "type": "flux",
+      "device": "default"
+    }
+  },
+  "39": {
+    "class_type": "VAELoader",
+    "inputs": { "vae_name": "ae.safetensors" }
+  },
+  "142": {
+    "class_type": "LoadImage",
+    "inputs": { "image": "__IMAGE__", "upload": "image" }
+  },
+  "143": {
+    "class_type": "LoadImageMask",
+    "inputs": { "image": "__MASK__", "channel": "red", "upload": "image" }
+  },
+  "38_guid": {
+    "class_type": "FluxGuidance",
+    "inputs": { "guidance": 30, "conditioning": ["6", 0] }
+  },
+  "150": {
+    "class_type": "InpaintModelConditioning",
+    "inputs": {
+      "positive": ["38_guid", 0],
+      "negative": ["7", 0],
+      "vae": ["39", 0],
+      "pixels": ["142", 0],
+      "mask": ["143", 0],
+      "noise_mask": true
+    }
+  },
+  "31": {
+    "class_type": "KSampler",
+    "inputs": {
+      "seed": "__SEED__",
+      "steps": 20,
+      "cfg": 1,
+      "sampler_name": "euler",
+      "scheduler": "normal",
+      "denoise": 1,
+      "model": ["37", 0],
+      "positive": ["150", 0],
+      "negative": ["150", 1],
+      "latent_image": ["150", 2]
+    }
+  },
+  "8": {
+    "class_type": "VAEDecode",
+    "inputs": { "samples": ["31", 0], "vae": ["39", 0] }
+  },
+  "9": {
+    "class_type": "SaveImage",
+    "inputs": { "filename_prefix": "slikaAI", "images": ["8", 0] }
+  }
+}

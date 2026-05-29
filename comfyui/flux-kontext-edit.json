@@ -1,0 +1,74 @@
+{
+  "_comment": "slikaAI whole-image edit workflow — FLUX.1 Kontext [dev], ComfyUI API format. Placeholders __PROMPT__, __IMAGE__ and __SEED__ are filled in at request time. Adjust the model filenames in nodes 37/38/39 to match your ComfyUI install, or re-export your own working Kontext workflow via 'Save (API Format)' and keep these placeholder values.",
+  "6": {
+    "class_type": "CLIPTextEncode",
+    "inputs": { "text": "__PROMPT__", "clip": ["38", 0] }
+  },
+  "8": {
+    "class_type": "VAEDecode",
+    "inputs": { "samples": ["31", 0], "vae": ["39", 0] }
+  },
+  "31": {
+    "class_type": "KSampler",
+    "inputs": {
+      "seed": "__SEED__",
+      "steps": 20,
+      "cfg": 1,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "denoise": 1,
+      "model": ["37", 0],
+      "positive": ["35", 0],
+      "negative": ["42", 0],
+      "latent_image": ["41", 0]
+    }
+  },
+  "35": {
+    "class_type": "FluxGuidance",
+    "inputs": { "guidance": 2.5, "conditioning": ["177", 0] }
+  },
+  "37": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "flux1-dev-kontext_fp8_scaled.safetensors",
+      "weight_dtype": "default"
+    }
+  },
+  "38": {
+    "class_type": "DualCLIPLoader",
+    "inputs": {
+      "clip_name1": "clip_l.safetensors",
+      "clip_name2": "t5xxl_fp8_e4m3fn_scaled.safetensors",
+      "type": "flux",
+      "device": "default"
+    }
+  },
+  "39": {
+    "class_type": "VAELoader",
+    "inputs": { "vae_name": "ae.safetensors" }
+  },
+  "41": {
+    "class_type": "VAEEncode",
+    "inputs": { "pixels": ["42_scale", 0], "vae": ["39", 0] }
+  },
+  "42": {
+    "class_type": "ConditioningZeroOut",
+    "inputs": { "conditioning": ["6", 0] }
+  },
+  "42_scale": {
+    "class_type": "FluxKontextImageScale",
+    "inputs": { "image": ["142", 0] }
+  },
+  "142": {
+    "class_type": "LoadImage",
+    "inputs": { "image": "__IMAGE__", "upload": "image" }
+  },
+  "177": {
+    "class_type": "ReferenceLatent",
+    "inputs": { "conditioning": ["6", 0], "latent": ["41", 0] }
+  },
+  "9": {
+    "class_type": "SaveImage",
+    "inputs": { "filename_prefix": "slikaAI", "images": ["8", 0] }
+  }
+}

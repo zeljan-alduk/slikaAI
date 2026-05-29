@@ -1,24 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fal } from "@fal-ai/client";
+import { runEdit, type EditMode } from "@/lib/providers";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
 
-const EDIT_MODEL = process.env.FAL_EDIT_MODEL || "fal-ai/flux-pro/kontext";
-const INPAINT_MODEL = process.env.FAL_INPAINT_MODEL || "fal-ai/flux-pro/v1/fill";
 const MAX_BYTES = 20 * 1024 * 1024; // 20 MB
 
-type FalResult = {
-  data?: { images?: Array<{ url?: string }> };
-};
-
 export async function POST(req: NextRequest) {
-  if (!process.env.FAL_KEY) {
-    return NextResponse.json({ error: "noKey" }, { status: 503 });
-  }
-
-  fal.config({ credentials: process.env.FAL_KEY });
-
   let form: FormData;
   try {
     form = await req.formData();
@@ -29,7 +17,8 @@ export async function POST(req: NextRequest) {
   const image = form.get("image");
   const mask = form.get("mask");
   const prompt = (form.get("prompt") as string | null)?.trim();
-  const mode = (form.get("mode") as string | null) === "brush" ? "brush" : "whole";
+  const mode: EditMode =
+    (form.get("mode") as string | null) === "brush" ? "brush" : "whole";
 
   if (!(image instanceof Blob)) {
     return NextResponse.json({ error: "needImage" }, { status: 400 });
@@ -45,30 +34,15 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const imageUrl = await fal.storage.upload(image);
-
-    let result: FalResult;
-    if (mode === "brush" && mask instanceof Blob) {
-      const maskUrl = await fal.storage.upload(mask);
-      result = (await fal.subscribe(INPAINT_MODEL, {
-        input: { image_url: imageUrl, mask_url: maskUrl, prompt },
-        logs: false,
-      })) as FalResult;
-    } else {
-      result = (await fal.subscribe(EDIT_MODEL, {
-        input: { prompt, image_url: imageUrl },
-        logs: false,
-      })) as FalResult;
-    }
-
-    const url = result.data?.images?.[0]?.url;
-    if (!url) {
-      return NextResponse.json({ error: "generic" }, { status: 502 });
-    }
-
-    return NextResponse.json({ imageUrl: url });
+    const result = await runEdit({
+      image,
+      mask: mask instanceof Blob ? mask : null,
+      prompt,
+      mode,
+    });
+    return NextResponse.json(result);
   } catch (err) {
-    console.error("[edit] fal error", err);
+    console.error("[edit] provider error", err);
     return NextResponse.json({ error: "generic" }, { status: 502 });
   }
 }

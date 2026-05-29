@@ -28,11 +28,70 @@ transform or restore it. Fully bilingual — **English** and **Croatian**.
 
 ```bash
 npm install
-cp .env.example .env.local   # add your FAL_KEY
-npm run dev
+npm run dev          # runs in free mock mode out of the box (no key needed)
 ```
 
 Open http://localhost:3000 — you'll be redirected to `/en` (or `/hr`).
+
+To enable real edits, add a key:
+
+```bash
+cp .env.example .env.local   # add your FAL_KEY
+```
+
+## Providers
+
+Editing runs through a small provider layer (`src/lib/providers`). Pick one with
+the `PROVIDER` env var, or let it auto-detect:
+
+| Provider  | Cost            | Where it runs        | Set                                            |
+| --------- | --------------- | -------------------- | ---------------------------------------------- |
+| `mock`    | free            | in-process (echo)    | nothing — the default with no credentials      |
+| `comfyui` | free            | your machine (GPU)   | `COMFYUI_URL` (+ workflow paths)               |
+| `fal`     | paid            | fal.ai (hosted)      | `FAL_KEY`                                       |
+
+Auto-detection: `FAL_KEY` → `fal`; else `COMFYUI_URL` → `comfyui`; else `mock`.
+`MOCK_EDIT=1` always forces mock.
+
+### Free development — mock mode
+
+With no credentials the app runs in **mock mode**: it echoes the uploaded image
+back so the entire UI flow (upload → process → before/after → download →
+iterate) works at zero cost.
+
+### Free local edits — ComfyUI + FLUX Kontext dev
+
+> LM Studio runs **text** LLMs and can't do image editing. For local image
+> editing use **ComfyUI**, which runs the open-weights **FLUX.1 Kontext [dev]** —
+> the same model family as the hosted `fal` provider.
+
+1. Install [ComfyUI](https://github.com/comfyanonymous/ComfyUI) and download the
+   FLUX.1 Kontext dev models (UNet, `clip_l`, `t5xxl`, `ae` VAE) into the matching
+   `models/` folders. For brush/mask inpainting, also grab **FLUX.1 Fill dev**.
+2. Start ComfyUI (defaults to `http://127.0.0.1:8188`).
+3. In `.env.local`:
+   ```bash
+   PROVIDER=comfyui
+   COMFYUI_URL=http://127.0.0.1:8188
+   ```
+4. The bundled workflow templates live in [`comfyui/`](./comfyui). They use four
+   placeholders the server injects per request: `__PROMPT__`, `__IMAGE__`,
+   `__MASK__`, `__SEED__`. **Edit the model filenames** in those files to match
+   your install — or build a workflow in the ComfyUI UI, export it with
+   **Save (API Format)**, drop in the four placeholders, and point
+   `COMFYUI_EDIT_WORKFLOW` / `COMFYUI_INPAINT_WORKFLOW` at it.
+
+How the ComfyUI provider works: it uploads the image (and mask) via
+`/upload/image`, injects the placeholders, queues the graph at `/prompt`, polls
+`/history/{id}`, then fetches the result from `/view` and returns it as a data URL.
+
+> On Apple Silicon, **Draw Things** is an easier local alternative — wiring it as
+> a fourth provider is straightforward following the same pattern.
+
+### Paid / hosted — fal.ai
+
+For free *real* edits without a GPU, Google's **Gemini 2.5 Flash Image**
+("Nano Banana") also has a free daily quota and slots in as another provider.
 
 ### Environment variables
 
