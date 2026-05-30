@@ -39,6 +39,13 @@
     "placeholderBrush": "e.g. replace this with a clear blue sky",
     "submit": "Transform",
     "submitting": "Developing…",
+    "preparing": "Preparing your photo…",
+    "loadingModel": "Warming up the model…",
+    "painting": "Painting your edit",
+    "finishing": "Finishing up…",
+    "stepOf": "Step {current} of {total}",
+    "elapsed": "elapsed",
+    "left": "left",
     "needImage": "Upload a photo first.",
     "needPrompt": "Describe the change you want.",
     "needMask": "Brush over an area to change first."

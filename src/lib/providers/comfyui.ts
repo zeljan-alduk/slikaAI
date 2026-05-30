@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import type { EditInput, EditOutput } from "./types";
+import { ensureComfyWs } from "../comfyProgress";
 
 const COMFY = (process.env.COMFYUI_URL || "http://127.0.0.1:8188").replace(
   /\/+$/,
@@ -52,6 +53,10 @@ function replacePlaceholders(
 }
 
 export async function runComfy(input: EditInput): Promise<EditOutput> {
+  // Open the progress socket up front so ComfyUI routes this job's step events
+  // (keyed by client_id "slika-ai") to it for /api/progress to report.
+  ensureComfyWs();
+
   const isBrush = input.mode === "brush" && !!input.mask;
   const wfPath = isBrush ? INPAINT_WORKFLOW : EDIT_WORKFLOW;
 

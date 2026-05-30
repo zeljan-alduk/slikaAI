@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import Dropzone from "./Dropzone";
 import MaskCanvas, { type MaskCanvasHandle } from "./MaskCanvas";
 import CompareSlider from "./CompareSlider";
+import ProgressOverlay from "./ProgressOverlay";
 import {
   ArrowRightIcon,
   BrushIcon,
@@ -248,15 +249,7 @@ export default function Editor() {
           </div>
         )}
 
-        {loading && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 rounded-2xl bg-ink/70 backdrop-blur-sm">
-            <div className="developing h-1 w-40 rounded-full" />
-            <p className="flex items-center gap-2 font-display text-lg text-paper">
-              <span className="dot-pulse">●</span>
-              {t("submitting")}
-            </p>
-          </div>
-        )}
+        {loading && <ProgressOverlay />}
 
         <button
           onClick={startOver}

@@ -39,6 +39,13 @@
     "placeholderBrush": "npr. zamijeni ovo vedrim plavim nebom",
     "submit": "Preoblikuj",
     "submitting": "Razvijam…",
+    "preparing": "Pripremam vašu fotografiju…",
+    "loadingModel": "Zagrijavam model…",
+    "painting": "Oslikavam vašu izmjenu",
+    "finishing": "Dovršavam…",
+    "stepOf": "Korak {current} od {total}",
+    "elapsed": "proteklo",
+    "left": "preostalo",
     "needImage": "Najprije učitajte fotografiju.",
     "needPrompt": "Opišite željenu promjenu.",
     "needMask": "Najprije prebojajte područje koje želite promijeniti."
