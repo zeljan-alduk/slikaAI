@@ -72,9 +72,12 @@
     "title": "Brzi alati — u vašem pregledniku",
     "note": "Bez AI poslužitelja. Radi lokalno i privatno.",
     "removeBg": "Ukloni pozadinu",
+    "removeObject": "Izbriši označeni objekt",
+    "needBrush": "Prebacite na „Označi područje” i prebojajte objekt",
     "loadingModel": "Učitavanje modela…",
     "downloading": "Preuzimanje modela",
     "processing": "Uklanjam pozadinu…",
+    "erasing": "Brišem objekt…",
     "runsInBrowser": "Izvodi se lokalno u vašem pregledniku",
     "failed": "Obrada u pregledniku nije uspjela. Vaš preglednik možda ne podržava WebGPU."
   },

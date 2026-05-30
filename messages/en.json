@@ -72,9 +72,12 @@
     "title": "Instant tools — in your browser",
     "note": "No AI server needed. Runs locally & privately.",
     "removeBg": "Remove background",
+    "removeObject": "Erase brushed object",
+    "needBrush": "Switch to “Brush an area” and paint over the object first",
     "loadingModel": "Loading model…",
     "downloading": "Downloading model",
     "processing": "Removing background…",
+    "erasing": "Erasing object…",
     "runsInBrowser": "Running locally in your browser",
     "failed": "In-browser processing failed. Your browser may not support WebGPU."
   },

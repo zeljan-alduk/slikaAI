@@ -193,6 +193,47 @@ export default function Editor() {
     }
   }
 
+  // Fully in-browser object removal (LaMa) using the brushed mask.
+  async function runRemoveObject() {
+    if (!src || !dims) return;
+    if (!maskRef.current?.hasStrokes()) return setError(resolveError("needMask"));
+    setError(null);
+    setBrowserStatus(tTools("loadingModel"));
+    try {
+      const { removeObject } = await import("@/lib/browser/removeObject");
+      const round8 = (n: number) => Math.max(8, Math.round(n / 8) * 8);
+      const cap = 512;
+      const s = Math.min(1, cap / Math.max(dims.w, dims.h));
+      const tw = round8(dims.w * s);
+      const th = round8(dims.h * s);
+      const imgBlob = await scaleImageToBlob(src, tw, th);
+      const maskBlob = await maskRef.current.getMaskBlob(tw, th);
+      if (!maskBlob) return setError(resolveError("needMask"));
+      const imgUrl = URL.createObjectURL(imgBlob);
+      const maskUrl = URL.createObjectURL(maskBlob);
+      try {
+        const out = await removeObject(imgUrl, maskUrl, tw, th, (msg, pct) => {
+          if (msg === "download") {
+            setBrowserStatus(`${tTools("downloading")} ${pct ?? 0}%`);
+          } else if (msg === "processing") {
+            setBrowserStatus(tTools("erasing"));
+          } else {
+            setBrowserStatus(tTools("loadingModel"));
+          }
+        });
+        setResult(out);
+      } finally {
+        URL.revokeObjectURL(imgUrl);
+        URL.revokeObjectURL(maskUrl);
+      }
+    } catch (e) {
+      console.error("[removeObject] failed:", e);
+      setError(tTools("failed"));
+    } finally {
+      setBrowserStatus(null);
+    }
+  }
+
   async function continueEditing() {
     if (!result) return;
     try {
@@ -510,6 +551,14 @@ export default function Editor() {
           className="inline-flex items-center gap-2 rounded-full border border-line bg-ink/50 px-4 py-2 text-sm font-medium text-paper transition enabled:hover:border-safelight/60 disabled:opacity-50"
         >
           {tTools("removeBg")}
+        </button>
+        <button
+          onClick={runRemoveObject}
+          disabled={!!browserStatus || loading || mode !== "brush" || !hasMask}
+          title={mode !== "brush" ? tTools("needBrush") : undefined}
+          className="inline-flex items-center gap-2 rounded-full border border-line bg-ink/50 px-4 py-2 text-sm font-medium text-paper transition enabled:hover:border-safelight/60 disabled:opacity-50"
+        >
+          {tTools("removeObject")}
         </button>
       </div>
     </div>
