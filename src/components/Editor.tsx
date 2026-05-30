@@ -79,6 +79,7 @@ export default function Editor() {
   const tResult = useTranslations("result");
   const tSug = useTranslations("suggestions");
   const tQ = useTranslations("quality");
+  const tTools = useTranslations("tools");
   const locale = useLocale();
   const resolveError = useError();
 
@@ -93,6 +94,7 @@ export default function Editor() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<string | null>(null);
+  const [browserStatus, setBrowserStatus] = useState<string | null>(null);
 
   const maskRef = useRef<MaskCanvasHandle>(null);
   const objectUrlRef = useRef<string | null>(null);
@@ -164,6 +166,30 @@ export default function Editor() {
       setError(resolveError("generic"));
     } finally {
       setLoading(false);
+    }
+  }
+
+  // Fully in-browser background removal (no server, no ComfyUI).
+  async function runRemoveBackground() {
+    if (!src) return;
+    setError(null);
+    setBrowserStatus(tTools("loadingModel"));
+    try {
+      const { removeBackground } = await import("@/lib/browser/removeBackground");
+      const dataUrl = await removeBackground(src, (msg, pct) => {
+        if (msg === "download") {
+          setBrowserStatus(`${tTools("downloading")} ${pct ?? 0}%`);
+        } else if (msg === "processing") {
+          setBrowserStatus(tTools("processing"));
+        } else {
+          setBrowserStatus(tTools("loadingModel"));
+        }
+      });
+      setResult(dataUrl);
+    } catch {
+      setError(tTools("failed"));
+    } finally {
+      setBrowserStatus(null);
     }
   }
 
@@ -288,6 +314,15 @@ export default function Editor() {
         )}
 
         {loading && <ProgressOverlay />}
+
+        {browserStatus && (
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 rounded-2xl bg-ink/80 px-6 backdrop-blur-sm">
+            <span className="dot-pulse font-display text-2xl text-safelight">●</span>
+            <div className="developing h-1.5 w-40 rounded-full" />
+            <p className="font-display text-lg text-paper">{browserStatus}</p>
+            <p className="text-xs text-muted">{tTools("runsInBrowser")}</p>
+          </div>
+        )}
 
         <button
           onClick={startOver}
@@ -461,6 +496,21 @@ export default function Editor() {
             {s}
           </button>
         ))}
+      </div>
+
+      {/* In-browser instant tools (no server / no prompt) */}
+      <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-dashed border-line bg-surface/30 px-4 py-3">
+        <div className="mr-auto">
+          <p className="text-sm font-semibold text-paper">{tTools("title")}</p>
+          <p className="text-xs text-muted">{tTools("note")}</p>
+        </div>
+        <button
+          onClick={runRemoveBackground}
+          disabled={!!browserStatus || loading}
+          className="inline-flex items-center gap-2 rounded-full border border-line bg-ink/50 px-4 py-2 text-sm font-medium text-paper transition enabled:hover:border-safelight/60 disabled:opacity-50"
+        >
+          {tTools("removeBg")}
+        </button>
       </div>
     </div>
   );

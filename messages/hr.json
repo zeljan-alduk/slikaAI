@@ -68,6 +68,16 @@
     "high": "Visoko",
     "highNote": "1 MP · ~12 min"
   },
+  "tools": {
+    "title": "Brzi alati — u vašem pregledniku",
+    "note": "Bez AI poslužitelja. Radi lokalno i privatno.",
+    "removeBg": "Ukloni pozadinu",
+    "loadingModel": "Učitavanje modela…",
+    "downloading": "Preuzimanje modela",
+    "processing": "Uklanjam pozadinu…",
+    "runsInBrowser": "Izvodi se lokalno u vašem pregledniku",
+    "failed": "Obrada u pregledniku nije uspjela. Vaš preglednik možda ne podržava WebGPU."
+  },
   "suggestions": {
     "label": "Trebate ideje?",
     "items": [
