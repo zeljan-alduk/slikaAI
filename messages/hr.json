@@ -59,6 +59,15 @@
     "startOver": "Počni iznova",
     "dragHint": "Povucite za usporedbu"
   },
+  "quality": {
+    "label": "Kvaliteta",
+    "fast": "Brzo",
+    "fastNote": "0,5 MP · ~3 min",
+    "standard": "Standardno",
+    "standardNote": "0,75 MP · ~6 min",
+    "high": "Visoko",
+    "highNote": "1 MP · ~12 min"
+  },
   "suggestions": {
     "label": "Trebate ideje?",
     "items": [

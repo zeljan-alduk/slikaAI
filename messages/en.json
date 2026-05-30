@@ -59,6 +59,15 @@
     "startOver": "Start over",
     "dragHint": "Drag to compare"
   },
+  "quality": {
+    "label": "Quality",
+    "fast": "Fast",
+    "fastNote": "0.5 MP · ~3 min",
+    "standard": "Standard",
+    "standardNote": "0.75 MP · ~6 min",
+    "high": "High",
+    "highNote": "1 MP · ~12 min"
+  },
   "suggestions": {
     "label": "Need ideas?",
     "items": [

@@ -12,7 +12,7 @@
     "class_type": "KSampler",
     "inputs": {
       "seed": "__SEED__",
-      "steps": 12,
+      "steps": "__STEPS__",
       "cfg": 1,
       "sampler_name": "euler",
       "scheduler": "simple",
@@ -55,7 +55,7 @@
   },
   "42_scale": {
     "class_type": "ImageScaleToTotalPixels",
-    "inputs": { "image": ["142", 0], "upscale_method": "lanczos", "megapixels": 0.5, "resolution_steps": 1 }
+    "inputs": { "image": ["142", 0], "upscale_method": "lanczos", "megapixels": "__MP__", "resolution_steps": 1 }
   },
   "142": {
     "class_type": "LoadImage",

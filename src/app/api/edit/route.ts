@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { runEdit, type EditMode } from "@/lib/providers";
+import { runEdit, type EditMode, type Quality } from "@/lib/providers";
+import { activeProvider } from "@/lib/providers";
+import { translateToEnglish } from "@/lib/translate";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -17,6 +19,10 @@ export async function POST(req: NextRequest) {
   const image = form.get("image");
   const mask = form.get("mask");
   const prompt = (form.get("prompt") as string | null)?.trim();
+  const locale = (form.get("locale") as string | null) ?? "en";
+  const qIn = form.get("quality") as string | null;
+  const quality: Quality =
+    qIn === "fast" || qIn === "high" ? qIn : "standard";
   const mode: EditMode =
     (form.get("mode") as string | null) === "brush" ? "brush" : "whole";
 
@@ -34,13 +40,24 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    // FLUX Kontext is English-centric — translate non-English prompts first.
+    // Skip for mock (it ignores the prompt anyway).
+    let promptForModel = prompt;
+    let translatedFrom: string | undefined;
+    if (activeProvider() !== "mock") {
+      const tr = await translateToEnglish(prompt, locale);
+      promptForModel = tr.text;
+      if (tr.translated) translatedFrom = tr.original;
+    }
+
     const result = await runEdit({
       image,
       mask: mask instanceof Blob ? mask : null,
-      prompt,
+      prompt: promptForModel,
       mode,
+      quality,
     });
-    return NextResponse.json(result);
+    return NextResponse.json({ ...result, promptUsed: promptForModel, translatedFrom });
   } catch (err) {
     console.error("[edit] provider error", err);
     return NextResponse.json({ error: "generic" }, { status: 502 });

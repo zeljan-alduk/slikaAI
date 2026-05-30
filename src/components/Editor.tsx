@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import Dropzone from "./Dropzone";
 import MaskCanvas, { type MaskCanvasHandle } from "./MaskCanvas";
 import CompareSlider from "./CompareSlider";
@@ -17,6 +17,7 @@ import {
 } from "./Icons";
 
 type Mode = "whole" | "brush";
+type Quality = "fast" | "standard" | "high";
 type Dims = { w: number; h: number };
 
 // Map API error keys to translated strings.
@@ -56,12 +57,15 @@ export default function Editor() {
   const tBrush = useTranslations("brush");
   const tResult = useTranslations("result");
   const tSug = useTranslations("suggestions");
+  const tQ = useTranslations("quality");
+  const locale = useLocale();
   const resolveError = useError();
 
   const [file, setFile] = useState<File | null>(null);
   const [src, setSrc] = useState<string | null>(null);
   const [dims, setDims] = useState<Dims | null>(null);
   const [mode, setMode] = useState<Mode>("whole");
+  const [quality, setQuality] = useState<Quality>("standard");
   const [prompt, setPrompt] = useState("");
   const [brushSize, setBrushSize] = useState(54);
   const [hasMask, setHasMask] = useState(false);
@@ -105,6 +109,8 @@ export default function Editor() {
     form.append("image", file);
     form.append("prompt", prompt.trim());
     form.append("mode", mode);
+    form.append("quality", quality);
+    form.append("locale", locale);
 
     if (mode === "brush") {
       const blob = await maskRef.current?.getMaskBlob();
@@ -297,6 +303,47 @@ export default function Editor() {
             </button>
           );
         })}
+      </div>
+
+      {/* Quality selector */}
+      <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-line bg-surface/50 px-4 py-3">
+        <span className="text-xs uppercase tracking-wider text-muted">
+          {tQ("label")}
+        </span>
+        <div className="flex flex-1 flex-wrap gap-1.5">
+          {(
+            [
+              { id: "fast", label: tQ("fast"), note: tQ("fastNote") },
+              { id: "standard", label: tQ("standard"), note: tQ("standardNote") },
+              { id: "high", label: tQ("high"), note: tQ("highNote") },
+            ] as const
+          ).map(({ id, label, note }) => {
+            const active = quality === id;
+            return (
+              <button
+                key={id}
+                onClick={() => setQuality(id)}
+                title={note}
+                className={[
+                  "flex flex-col rounded-xl border px-3 py-1.5 text-left transition",
+                  active
+                    ? "border-safelight/70 bg-safelight/[0.08]"
+                    : "border-line bg-ink/40 hover:border-line-soft",
+                ].join(" ")}
+              >
+                <span
+                  className={[
+                    "text-sm font-semibold",
+                    active ? "text-safelight" : "text-paper",
+                  ].join(" ")}
+                >
+                  {label}
+                </span>
+                <span className="text-[11px] text-muted">{note}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Brush controls */}

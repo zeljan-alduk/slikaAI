@@ -3,7 +3,8 @@ import { runMock } from "./mock";
 import { runFal } from "./fal";
 import { runComfy } from "./comfyui";
 
-export type { EditInput, EditOutput, EditMode, ProviderName } from "./types";
+export type { EditInput, EditOutput, EditMode, Quality, ProviderName } from "./types";
+export { QUALITY_PRESETS } from "./types";
 
 // Resolve the active provider. Explicit PROVIDER / MOCK_EDIT win; otherwise we
 // auto-detect from configured credentials and fall back to free mock mode.
