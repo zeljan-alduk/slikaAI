@@ -11,7 +11,7 @@
   "37": {
     "class_type": "UnetLoaderGGUF",
     "inputs": {
-      "unet_name": "flux1-fill-dev-Q4_K_M.gguf"
+      "unet_name": "flux1-fill-dev-Q4_K_S.gguf"
     }
   },
   "38": {

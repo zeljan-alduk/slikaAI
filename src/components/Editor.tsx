@@ -51,6 +51,27 @@ function loadDims(src: string): Promise<Dims> {
   });
 }
 
+// Draw an image (by URL) onto a canvas at the target size and return a PNG blob.
+function scaleImageToBlob(src: string, w: number, h: number): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const c = document.createElement("canvas");
+      c.width = w;
+      c.height = h;
+      const ctx = c.getContext("2d");
+      if (!ctx) return reject(new Error("no 2d context"));
+      ctx.drawImage(img, 0, 0, w, h);
+      c.toBlob(
+        (b) => (b ? resolve(b) : reject(new Error("toBlob failed"))),
+        "image/png",
+      );
+    };
+    img.onerror = reject;
+    img.src = src;
+  });
+}
+
 export default function Editor() {
   const t = useTranslations("prompt");
   const tMode = useTranslations("modes");
@@ -106,16 +127,27 @@ export default function Editor() {
     if (!prompt.trim()) return setError(resolveError("needPrompt"));
 
     const form = new FormData();
-    form.append("image", file);
     form.append("prompt", prompt.trim());
     form.append("mode", mode);
     form.append("quality", quality);
     form.append("locale", locale);
 
     if (mode === "brush") {
-      const blob = await maskRef.current?.getMaskBlob();
-      if (!blob) return setError(resolveError("needMask"));
-      form.append("mask", blob, "mask.png");
+      // Inpainting needs the image and mask at identical, MPS-friendly sizes.
+      // Scale both to a cap that grows with the chosen quality.
+      const cap = quality === "fast" ? 768 : quality === "high" ? 1280 : 1024;
+      const longest = Math.max(dims!.w, dims!.h);
+      const s = Math.min(1, cap / longest);
+      const tw = Math.round(dims!.w * s);
+      const th = Math.round(dims!.h * s);
+      const imageBlob = await scaleImageToBlob(src!, tw, th);
+      const maskBlob = await maskRef.current?.getMaskBlob(tw, th);
+      if (!maskBlob) return setError(resolveError("needMask"));
+      form.append("image", imageBlob, "image.png");
+      form.append("mask", maskBlob, "mask.png");
+    } else {
+      // Whole-image: send the original; the workflow scales it server-side.
+      form.append("image", file);
     }
 
     setLoading(true);

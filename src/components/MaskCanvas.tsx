@@ -10,7 +10,8 @@ import {
 } from "react";
 
 export type MaskCanvasHandle = {
-  getMaskBlob: () => Promise<Blob | null>;
+  // Renders the mask at the given size (defaults to the image's natural size).
+  getMaskBlob: (outW?: number, outH?: number) => Promise<Blob | null>;
   clear: () => void;
   hasStrokes: () => boolean;
 };
@@ -130,33 +131,35 @@ const MaskCanvas = forwardRef<MaskCanvasHandle, Props>(function MaskCanvas(
       redraw();
       onChange?.(false);
     },
-    getMaskBlob: async () => {
+    getMaskBlob: async (outW?: number, outH?: number) => {
       if (strokesRef.current.length === 0) return null;
+      const W = outW && outW > 0 ? Math.round(outW) : naturalWidth;
+      const H = outH && outH > 0 ? Math.round(outH) : naturalHeight;
       const off = document.createElement("canvas");
-      off.width = naturalWidth;
-      off.height = naturalHeight;
+      off.width = W;
+      off.height = H;
       const ctx = off.getContext("2d");
       if (!ctx) return null;
       ctx.fillStyle = "#000";
-      ctx.fillRect(0, 0, naturalWidth, naturalHeight);
+      ctx.fillRect(0, 0, W, H);
       ctx.fillStyle = "#fff";
       ctx.strokeStyle = "#fff";
       ctx.lineCap = "round";
       ctx.lineJoin = "round";
       for (const stroke of strokesRef.current) {
-        const r = stroke.radius * naturalWidth;
+        const r = stroke.radius * W;
         ctx.lineWidth = r * 2;
         ctx.beginPath();
         stroke.points.forEach((p, i) => {
-          const x = p.x * naturalWidth;
-          const y = p.y * naturalHeight;
+          const x = p.x * W;
+          const y = p.y * H;
           if (i === 0) ctx.moveTo(x, y);
           else ctx.lineTo(x, y);
         });
         ctx.stroke();
         for (const p of stroke.points) {
           ctx.beginPath();
-          ctx.arc(p.x * naturalWidth, p.y * naturalHeight, r, 0, Math.PI * 2);
+          ctx.arc(p.x * W, p.y * H, r, 0, Math.PI * 2);
           ctx.fill();
         }
       }
