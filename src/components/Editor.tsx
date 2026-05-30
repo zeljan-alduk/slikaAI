@@ -193,6 +193,31 @@ export default function Editor() {
     }
   }
 
+  // Fully in-browser 2x upscaling.
+  async function runUpscale() {
+    if (!src) return;
+    setError(null);
+    setBrowserStatus(tTools("loadingModel"));
+    try {
+      const { upscale } = await import("@/lib/browser/upscale");
+      const dataUrl = await upscale(src, (msg, pct) => {
+        if (msg === "download") {
+          setBrowserStatus(`${tTools("downloading")} ${pct ?? 0}%`);
+        } else if (msg === "processing") {
+          setBrowserStatus(tTools("upscaling"));
+        } else {
+          setBrowserStatus(tTools("loadingModel"));
+        }
+      });
+      setResult(dataUrl);
+    } catch (e) {
+      console.error("[upscale] failed:", e);
+      setError(tTools("failed"));
+    } finally {
+      setBrowserStatus(null);
+    }
+  }
+
   // Fully in-browser object removal (LaMa) using the brushed mask.
   async function runRemoveObject() {
     if (!src || !dims) return;
@@ -559,6 +584,13 @@ export default function Editor() {
           className="inline-flex items-center gap-2 rounded-full border border-line bg-ink/50 px-4 py-2 text-sm font-medium text-paper transition enabled:hover:border-safelight/60 disabled:opacity-50"
         >
           {tTools("removeObject")}
+        </button>
+        <button
+          onClick={runUpscale}
+          disabled={!!browserStatus || loading}
+          className="inline-flex items-center gap-2 rounded-full border border-line bg-ink/50 px-4 py-2 text-sm font-medium text-paper transition enabled:hover:border-safelight/60 disabled:opacity-50"
+        >
+          {tTools("upscale")}
         </button>
       </div>
     </div>

@@ -73,6 +73,8 @@
     "note": "No AI server needed. Runs locally & privately.",
     "removeBg": "Remove background",
     "removeObject": "Erase brushed object",
+    "upscale": "Upscale 2×",
+    "upscaling": "Upscaling…",
     "needBrush": "Switch to “Brush an area” and paint over the object first",
     "loadingModel": "Loading model…",
     "downloading": "Downloading model",

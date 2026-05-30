@@ -73,6 +73,8 @@
     "note": "Bez AI poslužitelja. Radi lokalno i privatno.",
     "removeBg": "Ukloni pozadinu",
     "removeObject": "Izbriši označeni objekt",
+    "upscale": "Povećaj 2×",
+    "upscaling": "Povećavam razlučivost…",
     "needBrush": "Prebacite na „Označi područje” i prebojajte objekt",
     "loadingModel": "Učitavanje modela…",
     "downloading": "Preuzimanje modela",
