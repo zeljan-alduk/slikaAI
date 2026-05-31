@@ -22,9 +22,12 @@ export async function POST(req: NextRequest) {
   const locale = (form.get("locale") as string | null) ?? "en";
   const qIn = form.get("quality") as string | null;
   const quality: Quality =
-    qIn === "fast" || qIn === "high" ? qIn : "standard";
+    qIn === "fast" || qIn === "high" || qIn === "ultra" ? qIn : "standard";
   const mode: EditMode =
     (form.get("mode") as string | null) === "brush" ? "brush" : "whole";
+  const imageW = Number(form.get("imageW")) || undefined;
+  const imageH = Number(form.get("imageH")) || undefined;
+  const timeoutMs = Number(form.get("timeoutMs")) || undefined;
 
   if (!(image instanceof Blob)) {
     return NextResponse.json({ error: "needImage" }, { status: 400 });
@@ -56,6 +59,9 @@ export async function POST(req: NextRequest) {
       prompt: promptForModel,
       mode,
       quality,
+      imageW,
+      imageH,
+      timeoutMs,
     });
     return NextResponse.json({ ...result, promptUsed: promptForModel, translatedFrom });
   } catch (err) {

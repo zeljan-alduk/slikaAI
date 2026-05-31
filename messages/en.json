@@ -66,7 +66,11 @@
     "standard": "Standard",
     "standardNote": "0.75 MP · ~6 min",
     "high": "High",
-    "highNote": "1 MP · ~12 min"
+    "highNote": "1 MP · ~12 min",
+    "ultra": "Ultra",
+    "ultraNote": "Native res · slowest",
+    "maxWait": "Max wait",
+    "minutes": "{n} min"
   },
   "tools": {
     "title": "Instant tools — in your browser",

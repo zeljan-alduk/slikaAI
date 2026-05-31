@@ -17,8 +17,10 @@ import {
 } from "./Icons";
 
 type Mode = "whole" | "brush";
-type Quality = "fast" | "standard" | "high";
+type Quality = "fast" | "standard" | "high" | "ultra";
 type Dims = { w: number; h: number };
+
+const TIMEOUT_OPTIONS = [10, 20, 40, 60]; // minutes
 
 // Map API error keys to translated strings.
 function useError() {
@@ -90,6 +92,7 @@ export default function Editor() {
   const [dims, setDims] = useState<Dims | null>(null);
   const [mode, setMode] = useState<Mode>("whole");
   const [quality, setQuality] = useState<Quality>("standard");
+  const [timeoutMin, setTimeoutMin] = useState(20);
   const [prompt, setPrompt] = useState("");
   const [brushSize, setBrushSize] = useState(54);
   const [hasMask, setHasMask] = useState(false);
@@ -135,11 +138,24 @@ export default function Editor() {
     form.append("mode", mode);
     form.append("quality", quality);
     form.append("locale", locale);
+    form.append("timeoutMs", String(timeoutMin * 60_000));
+    if (dims) {
+      form.append("imageW", String(dims.w));
+      form.append("imageH", String(dims.h));
+    }
 
     if (mode === "brush") {
       // Inpainting needs the image and mask at identical, MPS-friendly sizes.
       // Scale both to a cap that grows with the chosen quality.
-      const cap = quality === "fast" ? 768 : quality === "high" ? 1280 : 1024;
+      // Ultra uses the native size (capped to 2048 for safety).
+      const cap =
+        quality === "fast"
+          ? 768
+          : quality === "high"
+            ? 1280
+            : quality === "ultra"
+              ? Math.min(Math.max(dims!.w, dims!.h), 2048)
+              : 1024;
       const longest = Math.max(dims!.w, dims!.h);
       const s = Math.min(1, cap / longest);
       const tw = Math.round(dims!.w * s);
@@ -451,6 +467,7 @@ export default function Editor() {
               { id: "fast", label: tQ("fast"), note: tQ("fastNote") },
               { id: "standard", label: tQ("standard"), note: tQ("standardNote") },
               { id: "high", label: tQ("high"), note: tQ("highNote") },
+              { id: "ultra", label: tQ("ultra"), note: tQ("ultraNote") },
             ] as const
           ).map(({ id, label, note }) => {
             const active = quality === id;
@@ -479,6 +496,20 @@ export default function Editor() {
             );
           })}
         </div>
+        <label className="flex items-center gap-2 text-xs text-muted">
+          <span className="uppercase tracking-wider">{tQ("maxWait")}</span>
+          <select
+            value={timeoutMin}
+            onChange={(e) => setTimeoutMin(Number(e.target.value))}
+            className="rounded-lg border border-line bg-ink/60 px-2 py-1 text-paper focus:border-safelight/60 focus:outline-none"
+          >
+            {TIMEOUT_OPTIONS.map((m) => (
+              <option key={m} value={m}>
+                {tQ("minutes", { n: m })}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
 
       {/* Brush controls */}

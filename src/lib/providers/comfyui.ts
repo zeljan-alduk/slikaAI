@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import type { EditInput, EditOutput } from "./types";
-import { QUALITY_PRESETS } from "./types";
+import { QUALITY_PRESETS, ULTRA_MAX_MP } from "./types";
 import { ensureComfyWs } from "../comfyProgress";
 
 const COMFY = (process.env.COMFYUI_URL || "http://127.0.0.1:8188").replace(
@@ -104,10 +104,17 @@ export async function runComfy(input: EditInput): Promise<EditOutput> {
 
   const imageName = await uploadImage(input.image, "slika-input.png");
   const preset = QUALITY_PRESETS[input.quality] ?? QUALITY_PRESETS.standard;
+  // Ultra (megapixels === 0): use the source image's own resolution, capped.
+  let megapixels = preset.megapixels;
+  if (megapixels === 0) {
+    const nativeMp =
+      input.imageW && input.imageH ? (input.imageW * input.imageH) / 1_000_000 : 1.0;
+    megapixels = Math.min(Math.max(nativeMp, 0.1), ULTRA_MAX_MP);
+  }
   const repl: Record<string, string | number> = {
     __PROMPT__: input.prompt,
     __IMAGE__: imageName,
-    __MP__: preset.megapixels,
+    __MP__: megapixels,
     __STEPS__: preset.steps,
     // Node runtime — Math.random is allowed here (unlike workflow scripts).
     __SEED__: Math.floor(Math.random() * 1_000_000_000_000),
@@ -127,7 +134,12 @@ export async function runComfy(input: EditInput): Promise<EditOutput> {
   }
   const { prompt_id: promptId } = (await queue.json()) as { prompt_id: string };
 
-  const deadline = Date.now() + TIMEOUT_MS;
+  // Per-request timeout (from the UI setting), clamped to a sane range.
+  const timeout = Math.min(
+    Math.max(input.timeoutMs ?? TIMEOUT_MS, 60_000),
+    3_600_000,
+  );
+  const deadline = Date.now() + timeout;
   while (Date.now() < deadline) {
     const h = await cfetch(`${COMFY}/history/${promptId}`);
     if (h.ok) {
