@@ -12,9 +12,10 @@ const EDIT_WORKFLOW =
   process.env.COMFYUI_EDIT_WORKFLOW || "comfyui/flux-kontext-edit.json";
 const INPAINT_WORKFLOW =
   process.env.COMFYUI_INPAINT_WORKFLOW || "comfyui/flux-kontext-inpaint.json";
-// Sampling on Apple Silicon is slow (minutes), and the first run also loads the
-// model into memory. Generous default; override with COMFYUI_TIMEOUT_MS.
-const TIMEOUT_MS = Number(process.env.COMFYUI_TIMEOUT_MS) || 600_000;
+// Sampling on Apple Silicon is slow (minutes). High quality (1MP, 22 steps) at
+// ~30s/step is ~11 min, so the default must comfortably exceed that. Generous
+// default; override with COMFYUI_TIMEOUT_MS.
+const TIMEOUT_MS = Number(process.env.COMFYUI_TIMEOUT_MS) || 1_200_000;
 
 type ComfyWorkflow = Record<string, unknown>;
 
