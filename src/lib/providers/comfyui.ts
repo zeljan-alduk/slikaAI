@@ -18,11 +18,37 @@ const TIMEOUT_MS = Number(process.env.COMFYUI_TIMEOUT_MS) || 600_000;
 
 type ComfyWorkflow = Record<string, unknown>;
 
+// Thrown when ComfyUI can't be reached at all (app not running / wrong URL).
+export class EngineOfflineError extends Error {
+  constructor() {
+    super("ComfyUI is not reachable");
+    this.name = "EngineOfflineError";
+  }
+}
+
+// fetch that turns connection failures into a clear EngineOfflineError.
+async function cfetch(input: string, init?: RequestInit): Promise<Response> {
+  try {
+    return await fetch(input, init);
+  } catch (err) {
+    const cause = (err as { cause?: { code?: string } })?.cause;
+    if (
+      err instanceof TypeError ||
+      cause?.code === "ECONNREFUSED" ||
+      cause?.code === "ECONNRESET" ||
+      cause?.code === "ENOTFOUND"
+    ) {
+      throw new EngineOfflineError();
+    }
+    throw err;
+  }
+}
+
 async function uploadImage(blob: Blob, filename: string): Promise<string> {
   const fd = new FormData();
   fd.append("image", blob, filename);
   fd.append("overwrite", "true");
-  const res = await fetch(`${COMFY}/upload/image`, {
+  const res = await cfetch(`${COMFY}/upload/image`, {
     method: "POST",
     body: fd,
   });
@@ -90,7 +116,7 @@ export async function runComfy(input: EditInput): Promise<EditOutput> {
   }
   replacePlaceholders(workflow, repl);
 
-  const queue = await fetch(`${COMFY}/prompt`, {
+  const queue = await cfetch(`${COMFY}/prompt`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ prompt: workflow, client_id: "slika-ai" }),
@@ -102,7 +128,7 @@ export async function runComfy(input: EditInput): Promise<EditOutput> {
 
   const deadline = Date.now() + TIMEOUT_MS;
   while (Date.now() < deadline) {
-    const h = await fetch(`${COMFY}/history/${promptId}`);
+    const h = await cfetch(`${COMFY}/history/${promptId}`);
     if (h.ok) {
       const hist = (await h.json()) as Record<
         string,
@@ -127,7 +153,7 @@ export async function runComfy(input: EditInput): Promise<EditOutput> {
               `${COMFY}/view?filename=${encodeURIComponent(img.filename)}` +
               `&subfolder=${encodeURIComponent(img.subfolder || "")}` +
               `&type=${encodeURIComponent(img.type || "output")}`;
-            const r = await fetch(url);
+            const r = await cfetch(url);
             if (!r.ok) throw new Error(`ComfyUI view failed: ${r.status}`);
             const ab = await r.arrayBuffer();
             const b64 = Buffer.from(ab).toString("base64");

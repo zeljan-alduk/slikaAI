@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runEdit, type EditMode, type Quality } from "@/lib/providers";
-import { activeProvider } from "@/lib/providers";
+import { activeProvider, EngineOfflineError } from "@/lib/providers";
 import { translateToEnglish } from "@/lib/translate";
 
 export const runtime = "nodejs";
@@ -60,6 +60,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ...result, promptUsed: promptForModel, translatedFrom });
   } catch (err) {
     console.error("[edit] provider error", err);
+    if (err instanceof EngineOfflineError) {
+      return NextResponse.json({ error: "engineOffline" }, { status: 503 });
+    }
     return NextResponse.json({ error: "generic" }, { status: 502 });
   }
 }

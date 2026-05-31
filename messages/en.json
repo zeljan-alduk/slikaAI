@@ -95,6 +95,7 @@
   },
   "errors": {
     "noKey": "The image service isn't configured yet. Add your FAL_KEY to .env.local to enable editing.",
+    "engineOffline": "The local AI engine (ComfyUI) isn't running. Start the ComfyUI app, then try again. (The in-browser tools below work without it.)",
     "generic": "Something went wrong while editing. Please try again.",
     "tooBig": "The image is too large to process."
   },

@@ -36,6 +36,8 @@ function useError() {
         return tPrompt("needPrompt");
       case "needMask":
         return tPrompt("needMask");
+      case "engineOffline":
+        return tErr("engineOffline");
       default:
         return tErr("generic");
     }

@@ -95,6 +95,7 @@
   },
   "errors": {
     "noKey": "Usluga za obradu slika još nije postavljena. Dodajte svoj FAL_KEY u .env.local da omogućite uređivanje.",
+    "engineOffline": "Lokalni AI pogon (ComfyUI) nije pokrenut. Pokrenite aplikaciju ComfyUI pa pokušajte ponovno. (Alati u pregledniku ispod rade i bez njega.)",
     "generic": "Došlo je do pogreške pri uređivanju. Pokušajte ponovno.",
     "tooBig": "Slika je prevelika za obradu."
   },

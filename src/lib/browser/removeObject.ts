@@ -18,7 +18,20 @@ const MODEL_URL =
 
 let sessionPromise: Promise<ort.InferenceSession> | null = null;
 
+const MODEL_CACHE = "slika-models";
+
 async function fetchModel(onStatus?: StatusFn): Promise<ArrayBuffer> {
+  // Durable cache (survives reloads / HTTP-cache eviction), same idea as
+  // Transformers.js. Skip the ~198MB re-download once it's stored.
+  let cache: Cache | null = null;
+  try {
+    cache = await caches.open(MODEL_CACHE);
+    const hit = await cache.match(MODEL_URL);
+    if (hit) return await hit.arrayBuffer();
+  } catch {
+    cache = null; // Cache API unavailable — fall back to a plain fetch.
+  }
+
   const res = await fetch(MODEL_URL);
   if (!res.ok || !res.body) throw new Error(`model fetch ${res.status}`);
   const total = Number(res.headers.get("content-length")) || 0;
@@ -37,6 +50,13 @@ async function fetchModel(onStatus?: StatusFn): Promise<ArrayBuffer> {
   for (const c of chunks) {
     out.set(c, off);
     off += c.length;
+  }
+  if (cache) {
+    try {
+      await cache.put(MODEL_URL, new Response(out.slice()));
+    } catch {
+      /* quota or storage error — non-fatal, just won't be cached */
+    }
   }
   return out.buffer;
 }

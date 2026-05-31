@@ -5,6 +5,7 @@ import { runComfy } from "./comfyui";
 
 export type { EditInput, EditOutput, EditMode, Quality, ProviderName } from "./types";
 export { QUALITY_PRESETS } from "./types";
+export { EngineOfflineError } from "./comfyui";
 
 // Resolve the active provider. Explicit PROVIDER / MOCK_EDIT win; otherwise we
 // auto-detect from configured credentials and fall back to free mock mode.
