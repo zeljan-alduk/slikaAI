@@ -43,10 +43,18 @@ export function computeDeviceTier(caps: DeviceCapabilities): DeviceTier {
  * Select the best available inference backend. The app always degrades to
  * "mock" rather than failing, and only reports "unsupported" when even the
  * mock pipeline cannot run.
+ *
+ * WebGPU is only chosen when the caller explicitly opts in (`preferWebGpu`),
+ * because its execution path crashes some browsers on certain models. The
+ * default is the reliable WebAssembly (CPU) backend.
  */
-export function selectBackend(caps: DeviceCapabilities, tier: DeviceTier): InferenceBackend {
+export function selectBackend(
+  caps: DeviceCapabilities,
+  tier: DeviceTier,
+  preferWebGpu = false,
+): InferenceBackend {
   if (tier === "unsupported") return "unsupported";
-  if (caps.webgpuSupported && caps.secureContext) return "webgpu";
+  if (preferWebGpu && caps.webgpuSupported && caps.secureContext) return "webgpu";
   if (caps.wasmSupported) return "wasm";
   if (caps.webglSupported) return "webgl";
   // Mock pipeline only needs canvas, which exists in any real browser.

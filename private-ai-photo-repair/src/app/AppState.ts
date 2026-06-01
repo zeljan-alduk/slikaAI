@@ -159,6 +159,7 @@ export interface AppController {
   deleteAllModels: () => Promise<void>;
   setStorageSaver: (enabled: boolean) => Promise<void>;
   setStorageSaverDays: (days: number) => Promise<void>;
+  setPreferWebGpu: (enabled: boolean) => Promise<void>;
   startModelSetup: (modelIds: string[]) => Promise<void>;
   cancelModelSetup: () => void;
   dismissModelSetup: (dontAskAgain: boolean) => Promise<void>;
@@ -227,10 +228,12 @@ export function useAppController(): AppController {
     return planPipeline(selection.model, backend, { forceMock: isMockForced() });
   }, [selection, backend]);
 
-  const maxWorkingSize = useMemo(
-    () => (tier ? maxInputSizeForTier(tier) : 1024),
-    [tier],
-  );
+  const maxWorkingSize = useMemo(() => {
+    const base = tier ? maxInputSizeForTier(tier) : 1024;
+    // CPU (WASM) inference is much slower; cap large images so a real run on a
+    // high-tier device doesn't take many minutes.
+    return backend === "webgpu" ? base : Math.min(base, 1152);
+  }, [tier, backend]);
 
   // Models that have a real URL, are enabled, and are not yet cached — the only
   // ones the startup setup can actually download.
@@ -258,18 +261,21 @@ export function useAppController(): AppController {
         const caps = await detectCapabilities();
         if (cancelled) return;
         const computedTier = computeDeviceTier(caps);
-        const computedBackend = selectBackend(caps, computedTier);
+
+        // Load settings first so the backend honours the WebGPU opt-in.
+        const loadedSettings = await getSettings().catch(() => settings);
+        if (!cancelled) setSettings(loadedSettings);
+
+        const computedBackend = selectBackend(caps, computedTier, loadedSettings.preferWebGpu);
         setCapabilities(caps);
         setTier(computedTier);
         setBackend(computedBackend);
         logMessage("info", "capability-detection", `Detected ${computedTier} tier, backend ${computedBackend}.`, {
           webgpu: caps.webgpuSupported,
+          preferWebGpu: loadedSettings.preferWebGpu,
           cores: caps.hardwareConcurrency,
           memoryGb: caps.deviceMemoryGb,
         });
-
-        const loadedSettings = await getSettings().catch(() => settings);
-        if (!cancelled) setSettings(loadedSettings);
 
         if (loadedSettings.storageSaverEnabled) {
           const removed = await runStorageSaver(loadedSettings.storageSaverMaxAgeDays).catch(() => []);
@@ -656,6 +662,23 @@ export function useAppController(): AppController {
     [settings, persistSettings],
   );
 
+  // Toggle the WebGPU opt-in and re-select the backend immediately.
+  const setPreferWebGpu = useCallback(
+    async (enabled: boolean) => {
+      await persistSettings({ ...settings, preferWebGpu: enabled });
+      if (capabilities && tier) {
+        const next = selectBackend(capabilities, tier, enabled);
+        setBackend(next);
+        logMessage(
+          "info",
+          "capability-detection",
+          `WebGPU ${enabled ? "enabled" : "disabled"}; backend is now ${next}.`,
+        );
+      }
+    },
+    [settings, persistSettings, capabilities, tier, logMessage],
+  );
+
   // Download the chosen startup models sequentially, in the background. The app
   // stays usable (we don't flip the global busy phase) and the queue can be
   // cancelled at any time.
@@ -817,6 +840,7 @@ export function useAppController(): AppController {
     deleteAllModels,
     setStorageSaver,
     setStorageSaverDays,
+    setPreferWebGpu,
     startModelSetup,
     cancelModelSetup,
     dismissModelSetup,
