@@ -1,0 +1,74 @@
+name: Private AI Photo Repair
+
+# Builds (CI) the private-ai-photo-repair Vite app on every push/PR that touches
+# it, and deploys the static build to GitHub Pages on main, on the feature
+# branch (for a live preview), and on manual dispatch.
+on:
+  push:
+    branches:
+      - main
+      - claude/private-ai-photo-repair-eyyft
+    paths:
+      - "private-ai-photo-repair/**"
+      - ".github/workflows/private-ai-photo-repair.yml"
+  pull_request:
+    paths:
+      - "private-ai-photo-repair/**"
+      - ".github/workflows/private-ai-photo-repair.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow one concurrent Pages deployment; don't cancel an in-progress one.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+defaults:
+  run:
+    working-directory: private-ai-photo-repair
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: private-ai-photo-repair/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type-check and build
+        run: npm run build
+
+      - name: Configure Pages
+        if: github.event_name != 'pull_request'
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - name: Upload Pages artifact
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: private-ai-photo-repair/dist
+
+  deploy:
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
