@@ -8,6 +8,7 @@ import type {
   ModelLoadStatus,
   AppSettings,
 } from "../core/models/types";
+import { DEFAULT_SETTINGS } from "../core/models/types";
 import type { RetouchIntent } from "../core/prompt/promptTypes";
 import type { UserImageAsset, ReferenceImageAsset, ReferenceType } from "../core/image/types";
 import type { InferenceResult } from "../core/inference/types";
@@ -27,6 +28,7 @@ import {
 import { parseRetouchPrompt } from "../core/prompt/parseRetouchPrompt";
 import { selectModelForTask, type ModelSelection } from "../core/models/modelSelector";
 import { planPipeline, type PipelinePlan } from "../core/inference/pipelineFactory";
+import { MODEL_REGISTRY } from "../core/models/modelRegistry";
 import { modelCache, DownloadCancelledError, runStorageSaver } from "../core/models/modelCache";
 import { getSettings, saveSettings } from "../core/models/modelStorage";
 import { createLogEntry } from "../core/diagnostics/logger";
@@ -57,6 +59,12 @@ export type AppPhase =
   | "processing"
   | "done"
   | "error";
+
+export interface StartupQueueState {
+  total: number;
+  completedCount: number;
+  currentName: string | null;
+}
 
 const MAX_LOGS = 500;
 const LARGE_IMAGE_BYTES = 12 * 1024 * 1024;
@@ -93,6 +101,12 @@ export interface AppController {
   cachedModels: CachedModelInfo[];
   settings: AppSettings;
 
+  // startup model setup
+  eligibleStartupModels: ModelRegistryEntry[];
+  showModelSetup: boolean;
+  startupDownloading: boolean;
+  startupQueue: StartupQueueState | null;
+
   // progress
   downloadProgress: DownloadProgress | null;
   modelLoadProgress: ModelLoadProgress | null;
@@ -125,6 +139,9 @@ export interface AppController {
   deleteAllModels: () => Promise<void>;
   setStorageSaver: (enabled: boolean) => Promise<void>;
   setStorageSaverDays: (days: number) => Promise<void>;
+  startModelSetup: (modelIds: string[]) => Promise<void>;
+  cancelModelSetup: () => void;
+  dismissModelSetup: (dontAskAgain: boolean) => Promise<void>;
   exportResult: (format: ExportFormat) => Promise<void>;
   dismissError: () => void;
   log: (entry: PipelineLogEntry) => void;
@@ -142,10 +159,11 @@ export function useAppController(): AppController {
 
   const [cachedModels, setCachedModels] = useState<CachedModelInfo[]>([]);
   const [selectedModelCached, setSelectedModelCached] = useState(false);
-  const [settings, setSettings] = useState<AppSettings>({
-    storageSaverEnabled: false,
-    storageSaverMaxAgeDays: 30,
-  });
+  const [settings, setSettings] = useState<AppSettings>({ ...DEFAULT_SETTINGS });
+  const [setupHandled, setSetupHandled] = useState(false);
+  const [startupDownloading, setStartupDownloading] = useState(false);
+  const [startupQueue, setStartupQueue] = useState<StartupQueueState | null>(null);
+  const startupCancelRef = useRef(false);
 
   const [downloadProgress, setDownloadProgress] = useState<DownloadProgress | null>(null);
   const [modelLoadProgress, setModelLoadProgress] = useState<ModelLoadProgress | null>(null);
@@ -190,6 +208,24 @@ export function useAppController(): AppController {
     () => (tier ? maxInputSizeForTier(tier) : 1024),
     [tier],
   );
+
+  // Models that have a real URL, are enabled, and are not yet cached — the only
+  // ones the startup setup can actually download.
+  const eligibleStartupModels = useMemo<ModelRegistryEntry[]>(() => {
+    return MODEL_REGISTRY.filter(
+      (m) =>
+        m.enabled &&
+        m.modelUrl !== null &&
+        !cachedModels.some((c) => c.modelId === m.id),
+    );
+  }, [cachedModels]);
+
+  const showModelSetup =
+    tier !== null &&
+    tier !== "unsupported" &&
+    settings.promptModelSetupOnStart &&
+    !setupHandled &&
+    (eligibleStartupModels.length > 0 || startupDownloading);
 
   // Initial capability detection + settings + cache load.
   useEffect(() => {
@@ -541,6 +577,71 @@ export function useAppController(): AppController {
     [settings, persistSettings],
   );
 
+  // Download the chosen startup models sequentially, in the background. The app
+  // stays usable (we don't flip the global busy phase) and the queue can be
+  // cancelled at any time.
+  const startModelSetup = useCallback(
+    async (modelIds: string[]) => {
+      const models = MODEL_REGISTRY.filter(
+        (m) => modelIds.includes(m.id) && m.modelUrl !== null,
+      );
+      if (models.length === 0) {
+        setSetupHandled(true);
+        return;
+      }
+      startupCancelRef.current = false;
+      const controller = new AbortController();
+      downloadAbortRef.current = controller;
+      setStartupDownloading(true);
+      setError(null);
+
+      let completed = 0;
+      for (const model of models) {
+        if (startupCancelRef.current || controller.signal.aborted) break;
+        setStartupQueue({ total: models.length, completedCount: completed, currentName: model.name });
+        try {
+          await modelCache.downloadAndCacheModel(model, {
+            signal: controller.signal,
+            onProgress: setDownloadProgress,
+          });
+          completed += 1;
+          logMessage("info", "model-cache", `Downloaded "${model.name}".`);
+        } catch (err) {
+          if (err instanceof DownloadCancelledError) {
+            logMessage("warn", "model-cache", "Model setup cancelled.");
+          } else {
+            const message = err instanceof Error ? err.message : "Model download failed.";
+            setError(message);
+            logMessage("error", "model-cache", `Failed to download "${model.name}": ${message}`);
+          }
+          break;
+        }
+      }
+
+      downloadAbortRef.current = null;
+      setStartupDownloading(false);
+      setStartupQueue(null);
+      setSetupHandled(true);
+      await refreshCachedModels();
+    },
+    [logMessage, refreshCachedModels],
+  );
+
+  const cancelModelSetup = useCallback(() => {
+    startupCancelRef.current = true;
+    downloadAbortRef.current?.abort();
+  }, []);
+
+  const dismissModelSetup = useCallback(
+    async (dontAskAgain: boolean) => {
+      setSetupHandled(true);
+      if (dontAskAgain) {
+        await persistSettings({ ...settings, promptModelSetupOnStart: false });
+      }
+    },
+    [settings, persistSettings],
+  );
+
   const exportResult = useCallback(
     async (format: ExportFormat) => {
       if (!result) return;
@@ -603,6 +704,10 @@ export function useAppController(): AppController {
     selectedModelCached,
     cachedModels,
     settings,
+    eligibleStartupModels,
+    showModelSetup,
+    startupDownloading,
+    startupQueue,
     downloadProgress,
     modelLoadProgress,
     processingProgress,
@@ -628,6 +733,9 @@ export function useAppController(): AppController {
     deleteAllModels,
     setStorageSaver,
     setStorageSaverDays,
+    startModelSetup,
+    cancelModelSetup,
+    dismissModelSetup,
     exportResult,
     dismissError,
     log,
