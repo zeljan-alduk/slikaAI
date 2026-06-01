@@ -435,8 +435,9 @@ export function useAppController(): AppController {
     }
     const model = selection.model;
 
-    // Real models must be cached before running.
-    if (!plan.useMock && !(await modelCache.isModelCached(model.id))) {
+    // Raw-ONNX models must be cached before running. Transformers.js models
+    // download on first use (and are cached by the browser afterwards).
+    if (plan.engine === "onnx" && !(await modelCache.isModelCached(model.id))) {
       setError("Download the model before processing, or it cannot run.");
       return;
     }
@@ -462,6 +463,7 @@ export function useAppController(): AppController {
         intent,
         model,
         backend: plan.backend,
+        engine: plan.engine,
         useMock: plan.useMock,
         maxWorkingSize,
       },

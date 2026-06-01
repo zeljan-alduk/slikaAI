@@ -3,6 +3,7 @@ import {
   SUGGESTED_COMMANDS_HR,
   type SuggestedCommand,
 } from "../core/prompt/promptSuggestions";
+import { useI18n } from "../i18n/i18n";
 
 interface SuggestedCommandChipsProps {
   onSelect: (command: SuggestedCommand) => void;
@@ -10,14 +11,15 @@ interface SuggestedCommandChipsProps {
 }
 
 export function SuggestedCommandChips({ onSelect, disabled }: SuggestedCommandChipsProps): JSX.Element {
+  const { t } = useI18n();
   return (
     <section className="card">
-      <h2>Suggested commands</h2>
-      <h3 style={{ marginTop: 8 }}>English</h3>
+      <h2>{t("suggest.title")}</h2>
+      <h3 style={{ marginTop: 8 }}>{t("suggest.hr")}</h3>
       <div className="chips">
-        {SUGGESTED_COMMANDS_EN.map((cmd) => (
+        {SUGGESTED_COMMANDS_HR.map((cmd) => (
           <button
-            key={`en-${cmd.label}`}
+            key={`hr-${cmd.label}`}
             className="chip"
             disabled={disabled}
             onClick={() => onSelect(cmd)}
@@ -26,11 +28,11 @@ export function SuggestedCommandChips({ onSelect, disabled }: SuggestedCommandCh
           </button>
         ))}
       </div>
-      <h3 style={{ marginTop: 12 }}>Hrvatski</h3>
+      <h3 style={{ marginTop: 12 }}>{t("suggest.en")}</h3>
       <div className="chips">
-        {SUGGESTED_COMMANDS_HR.map((cmd) => (
+        {SUGGESTED_COMMANDS_EN.map((cmd) => (
           <button
-            key={`hr-${cmd.label}`}
+            key={`en-${cmd.label}`}
             className="chip"
             disabled={disabled}
             onClick={() => onSelect(cmd)}

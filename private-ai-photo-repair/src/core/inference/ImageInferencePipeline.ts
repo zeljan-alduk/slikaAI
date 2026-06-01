@@ -1,5 +1,5 @@
 import type { InferenceBackend } from "../capabilities/types";
-import type { ModelRegistryEntry, RetouchTask } from "../models/types";
+import type { ModelRegistryEntry, RetouchTask, InferenceEngine } from "../models/types";
 import type { RetouchIntent } from "../prompt/promptTypes";
 import type {
   ProcessingProgress,
@@ -24,6 +24,7 @@ import {
 } from "./MockPipelines";
 import { analyzeReference, selectBestReference } from "../image/referenceImages";
 import { OnnxImagePipeline } from "./OnnxImagePipeline";
+import { runTransformersTask } from "./TransformersPipeline";
 import { modelCache } from "../models/modelCache";
 
 export interface PipelineRunInput {
@@ -33,6 +34,7 @@ export interface PipelineRunInput {
   intent: RetouchIntent;
   model: ModelRegistryEntry;
   backend: InferenceBackend;
+  engine: InferenceEngine;
   useMock: boolean;
   maxWorkingSize: number;
   signal: AbortSignal;
@@ -166,6 +168,39 @@ async function maybeRealInference(
   log: Logger,
 ): Promise<ImageData | null> {
   if (input.useMock) return null;
+
+  // Preferred path: real Transformers.js model. On failure we log and fall back
+  // to the mock pipeline so the app never hard-fails.
+  if (input.engine === "transformers" && input.model.transformersModelId) {
+    try {
+      log.info(`Loading real model "${input.model.transformersModelId}" (Transformers.js)…`);
+      const out = await runTransformersTask(
+        input.model.task,
+        input.model.transformersModelId,
+        working,
+        {
+          device: input.backend === "webgpu" ? "webgpu" : "wasm",
+          signal: input.signal,
+          progressCallback: (d) => {
+            if (d.status === "progress" && d.file) {
+              log.info(`Downloading ${d.file}: ${Math.round(d.progress ?? 0)}%`);
+            } else if (d.status === "ready") {
+              log.info("Model ready.");
+            }
+          },
+        },
+      );
+      log.info("Real model inference complete.");
+      return out;
+    } catch (err) {
+      if (err instanceof CancelledError) throw err;
+      const message = err instanceof Error ? err.message : String(err);
+      log.warn(`Real model failed; falling back to mock. (${message})`);
+      return null;
+    }
+  }
+
+  // Raw ONNX path (requires the model file in the IndexedDB cache).
   const blob = await modelCache.getModelBlob(input.model.id);
   if (!blob) {
     throw new Error(
@@ -245,6 +280,24 @@ async function runSuperResolution(
 ): Promise<ImageData> {
   tracker.advanceTo("decode", "Decoding image…");
   const working = resizeToMaxLongestSide(input.main.imageData, input.maxWorkingSize).imageData;
+
+  // Real engine path: the model upscales in a single pass (no manual tiling).
+  if (!input.useMock) {
+    tracker.advanceTo("memory", "Checking memory limits…");
+    tracker.advanceTo("tile", "Preparing model…");
+    tracker.advanceTo("process-tiles", "Running super-resolution model…");
+    const real = await maybeRealInference(input, working, log);
+    if (real) {
+      tracker.advanceTo("merge", "Finalizing…");
+      tracker.advanceTo("seams", "Blending…");
+      throwIfAborted(input.signal);
+      return real;
+    }
+    warnings.push(
+      "This result was generated in mock mode. Connect a real ONNX model for production-quality AI restoration.",
+    );
+  }
+
   tracker.advanceTo("memory", "Checking memory limits…");
   const scale = 2;
   const plan = planTiles(working.width, working.height, TILE_SIZE);

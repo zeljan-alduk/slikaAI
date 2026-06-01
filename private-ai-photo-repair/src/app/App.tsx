@@ -17,57 +17,50 @@ import { ExportPanel } from "../components/ExportPanel";
 import { ModelManager } from "../components/ModelManager";
 import { DiagnosticsPanel } from "../components/DiagnosticsPanel";
 import { ErrorBanner } from "../components/ErrorBanner";
+import { useI18n } from "../i18n/i18n";
 
 export function App(): JSX.Element {
   const c = useAppController();
+  const { t } = useI18n();
 
   const freeStorageBytes =
     c.capabilities?.storageQuotaBytes != null
       ? c.capabilities.storageQuotaBytes - (c.capabilities.storageUsageBytes ?? 0)
       : null;
 
+  const engine = c.plan?.engine ?? null;
   const taskRecognised = !!c.intent && c.intent.task !== "unknown" && !!c.selection?.model;
-  const needsDownload =
-    !!c.plan && !c.plan.useMock && !c.selectedModelCached;
+  // Only raw-ONNX models must be pre-downloaded; Transformers.js fetches on use.
+  const needsDownload = !!c.plan && engine === "onnx" && !c.selectedModelCached;
   const canStart =
     !!c.mainImage && taskRecognised && !needsDownload && !c.isBusy && c.tier !== "unsupported";
 
   const startHint = (() => {
-    if (!c.mainImage) return "Upload a main photo to begin.";
-    if (!taskRecognised) return "Enter or pick a command so the task can be recognised.";
-    if (needsDownload) return "Download the required model before processing.";
-    if (c.tier === "unsupported") return "This device does not support local AI processing.";
-    return c.plan?.useMock
-      ? "Ready. This task will run in mock mode (simulated)."
-      : "Ready to process locally.";
+    if (!c.mainImage) return t("process.hint.upload");
+    if (!taskRecognised) return t("process.hint.recognise");
+    if (c.tier === "unsupported") return t("process.hint.unsupported");
+    if (needsDownload) return t("process.hint.download");
+    if (c.plan?.useMock) return t("process.hint.readyMock");
+    if (engine === "transformers") return t("process.hint.readyFirstUse");
+    return t("process.hint.ready");
+  })();
+
+  // Gentle warning when a required real model isn't downloaded yet.
+  const modelWarning = (() => {
+    if (!c.plan || !c.selection?.model || !taskRecognised) return null;
+    if (engine === "onnx" && !c.selectedModelCached) return t("process.modelWarnOnnx");
+    if (engine === "transformers" && !c.result && c.phase !== "processing") {
+      return t("process.modelWarn", { size: `${c.selection.model.estimatedSizeMb} MB` });
+    }
+    return null;
   })();
 
   return (
     <div className="app-shell">
       <Header />
       <ErrorBanner message={c.error} onDismiss={c.dismissError} />
-      <PrivacyExplainer />
 
-      <DeviceCapabilityCard
-        capabilities={c.capabilities}
-        tier={c.tier}
-        backend={c.backend}
-        maxWorkingSize={c.maxWorkingSize}
-      />
-
-      {c.showModelSetup && (
-        <ModelSetupCard
-          models={c.eligibleStartupModels}
-          freeStorageBytes={freeStorageBytes}
-          downloading={c.startupDownloading}
-          progress={c.downloadProgress}
-          queue={c.startupQueue}
-          onDownload={(ids) => void c.startModelSetup(ids)}
-          onCancel={c.cancelModelSetup}
-          onDismiss={(dontAsk) => void c.dismissModelSetup(dontAsk)}
-        />
-      )}
-
+      {/* The image is the focus: uploader and result preview lead the page. */}
       <ImageUploader
         asset={c.mainImage}
         onFile={(f) => void c.setMainImageFile(f)}
@@ -76,18 +69,48 @@ export function App(): JSX.Element {
         maxWorkingSize={c.maxWorkingSize}
       />
 
-      <ReferenceImageUploader
-        references={c.referenceImages}
-        onAdd={(f) => void c.addReferenceFile(f)}
-        onRemove={c.removeReference}
-        onTypeChange={c.setReferenceType}
-        disabled={c.isBusy}
-      />
+      <BeforeAfterPreview beforeAsset={c.mainImage} result={c.result} />
+      <ExportPanel result={c.result} onExport={(fmt) => void c.exportResult(fmt)} />
 
       <PromptBox value={c.prompt} onChange={c.setPrompt} intent={c.intent} disabled={c.isBusy} />
 
       <SuggestedCommandChips
         onSelect={(cmd) => c.setPrompt(cmd.prompt)}
+        disabled={c.isBusy}
+      />
+
+      <section className="card">
+        <h2>{t("process.title")}</h2>
+        <p className="muted">{startHint}</p>
+        {modelWarning && (
+          <p className="muted" style={{ color: "var(--warn)", marginTop: 4 }}>
+            {modelWarning}
+          </p>
+        )}
+        <div className="row" style={{ marginTop: 8 }}>
+          <button
+            className="primary"
+            onClick={() => void c.startProcessing()}
+            disabled={!canStart}
+          >
+            {c.phase === "processing" ? t("process.processing") : t("process.start")}
+          </button>
+          {c.phase === "processing" && (
+            <button className="danger" onClick={c.cancelProcessing}>
+              {t("process.cancel")}
+            </button>
+          )}
+        </div>
+      </section>
+
+      <ProcessingTimeline progress={c.processingProgress} onCancel={c.cancelProcessing} />
+      <TileProgressCard progress={c.tileProgress} active={c.phase === "processing"} />
+
+      <ReferenceImageUploader
+        references={c.referenceImages}
+        onAdd={(f) => void c.addReferenceFile(f)}
+        onRemove={c.removeReference}
+        onTypeChange={c.setReferenceType}
         disabled={c.isBusy}
       />
 
@@ -105,30 +128,27 @@ export function App(): JSX.Element {
       )}
       <ModelLoadProgressCard progress={c.modelLoadProgress} />
 
-      <section className="card">
-        <h2>Process</h2>
-        <p className="muted">{startHint}</p>
-        <div className="row" style={{ marginTop: 8 }}>
-          <button
-            className="primary"
-            onClick={() => void c.startProcessing()}
-            disabled={!canStart}
-          >
-            {c.phase === "processing" ? "Processing…" : "Start"}
-          </button>
-          {c.phase === "processing" && (
-            <button className="danger" onClick={c.cancelProcessing}>
-              Cancel
-            </button>
-          )}
-        </div>
-      </section>
+      {c.showModelSetup && (
+        <ModelSetupCard
+          models={c.eligibleStartupModels}
+          freeStorageBytes={freeStorageBytes}
+          downloading={c.startupDownloading}
+          progress={c.downloadProgress}
+          queue={c.startupQueue}
+          onDownload={(ids) => void c.startModelSetup(ids)}
+          onCancel={c.cancelModelSetup}
+          onDismiss={(dontAsk) => void c.dismissModelSetup(dontAsk)}
+        />
+      )}
 
-      <ProcessingTimeline progress={c.processingProgress} onCancel={c.cancelProcessing} />
-      <TileProgressCard progress={c.tileProgress} active={c.phase === "processing"} />
+      <PrivacyExplainer />
 
-      <BeforeAfterPreview beforeAsset={c.mainImage} result={c.result} />
-      <ExportPanel result={c.result} onExport={(fmt) => void c.exportResult(fmt)} />
+      <DeviceCapabilityCard
+        capabilities={c.capabilities}
+        tier={c.tier}
+        backend={c.backend}
+        maxWorkingSize={c.maxWorkingSize}
+      />
 
       <ModelManager
         cachedModels={c.cachedModels}
@@ -159,7 +179,7 @@ export function App(): JSX.Element {
       />
 
       <footer className="muted" style={{ textAlign: "center", paddingTop: 8 }}>
-        Private AI Photo Repair · All processing happens locally · No image upload
+        {t("footer")}
       </footer>
     </div>
   );

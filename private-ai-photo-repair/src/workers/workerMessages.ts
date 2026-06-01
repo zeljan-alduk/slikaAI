@@ -1,5 +1,5 @@
 import type { InferenceBackend } from "../core/capabilities/types";
-import type { ModelRegistryEntry, RetouchTask } from "../core/models/types";
+import type { ModelRegistryEntry, RetouchTask, InferenceEngine } from "../core/models/types";
 import type { RetouchIntent } from "../core/prompt/promptTypes";
 import type {
   UserImageAssetTransfer,
@@ -20,6 +20,7 @@ export interface StartInferenceMessage {
     intent: RetouchIntent;
     model: ModelRegistryEntry;
     backend: InferenceBackend;
+    engine: InferenceEngine;
     useMock: boolean;
     maxWorkingSize: number;
   };

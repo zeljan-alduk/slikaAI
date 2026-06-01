@@ -19,8 +19,9 @@ export const MODEL_REGISTRY: ModelRegistryEntry[] = [
     name: "Basic Enhancement",
     task: "enhance",
     description:
-      "General quality boost: brightness, contrast, saturation and mild sharpening.",
+      "General quality boost that cleans compression artifacts and restores detail.",
     modelUrl: envUrl(import.meta.env.VITE_ENHANCE_MODEL_URL),
+    transformersModelId: "Xenova/swin2SR-compressed-sr-x4-48",
     version: "1.0.0",
     estimatedSizeMb: 25,
     expectedInputSize: { width: 512, height: 512 },
@@ -37,6 +38,7 @@ export const MODEL_REGISTRY: ModelRegistryEntry[] = [
     task: "denoise",
     description: "Reduces sensor and compression noise while preserving edges.",
     modelUrl: envUrl(import.meta.env.VITE_DENOISE_MODEL_URL),
+    transformersModelId: "Xenova/swin2SR-compressed-sr-x4-48",
     version: "1.0.0",
     estimatedSizeMb: 45,
     expectedInputSize: { width: 512, height: 512 },
@@ -53,6 +55,7 @@ export const MODEL_REGISTRY: ModelRegistryEntry[] = [
     task: "background-removal",
     description: "Segments the foreground subject and outputs a transparent PNG.",
     modelUrl: envUrl(import.meta.env.VITE_BACKGROUND_REMOVAL_MODEL_URL),
+    transformersModelId: "Xenova/modnet",
     version: "1.0.0",
     estimatedSizeMb: 50,
     expectedInputSize: { width: 320, height: 320 },
@@ -67,8 +70,9 @@ export const MODEL_REGISTRY: ModelRegistryEntry[] = [
     id: "super-resolution-2x-v1",
     name: "Super Resolution 2x",
     task: "super-resolution",
-    description: "Upscales the image 2x with tile-based processing for large inputs.",
+    description: "Upscales the image 2x using a Swin2SR super-resolution model.",
     modelUrl: envUrl(import.meta.env.VITE_SUPER_RESOLUTION_MODEL_URL),
+    transformersModelId: "Xenova/swin2SR-classical-sr-x2-64",
     version: "1.0.0",
     estimatedSizeMb: 120,
     expectedInputSize: { width: 256, height: 256 },
@@ -86,6 +90,7 @@ export const MODEL_REGISTRY: ModelRegistryEntry[] = [
     description:
       "Restores faded, scratched and damaged old photographs with colour balancing.",
     modelUrl: envUrl(import.meta.env.VITE_RESTORE_OLD_PHOTO_MODEL_URL),
+    transformersModelId: "Xenova/swin2SR-compressed-sr-x4-48",
     version: "1.0.0",
     estimatedSizeMb: 180,
     expectedInputSize: { width: 512, height: 512 },
@@ -103,6 +108,9 @@ export const MODEL_REGISTRY: ModelRegistryEntry[] = [
     description:
       "Restores the same person using better reference photos to guide the result.",
     modelUrl: envUrl(import.meta.env.VITE_REFERENCE_GUIDED_RESTORE_MODEL_URL),
+    // Reference identity transfer needs a dedicated model; until one is wired,
+    // this runs a real restoration backbone and stays clearly labelled.
+    transformersModelId: "Xenova/swin2SR-compressed-sr-x4-48",
     version: "1.0.0",
     estimatedSizeMb: 500,
     expectedInputSize: { width: 512, height: 512 },
@@ -119,7 +127,12 @@ export function getModelById(id: string): ModelRegistryEntry | null {
   return MODEL_REGISTRY.find((m) => m.id === id) ?? null;
 }
 
-/** A model can run in mock mode when it lacks a real URL but supports mocking. */
+/** Whether a model has any real engine configured (ONNX URL or Transformers.js). */
+export function modelHasRealEngine(model: ModelRegistryEntry): boolean {
+  return model.modelUrl !== null || !!model.transformersModelId;
+}
+
+/** A model falls back to mock when it has no real engine but supports mocking. */
 export function modelUsesMock(model: ModelRegistryEntry): boolean {
-  return model.modelUrl === null && model.mockAvailable && MOCK_MODE_ENABLED;
+  return !modelHasRealEngine(model) && model.mockAvailable && MOCK_MODE_ENABLED;
 }

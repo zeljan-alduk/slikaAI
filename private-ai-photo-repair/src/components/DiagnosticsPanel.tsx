@@ -15,6 +15,7 @@ import type { UserImageAsset } from "../core/image/types";
 import { TaskLogViewer } from "./TaskLogViewer";
 import { buildDiagnostics, diagnosticsToJson, copyToClipboard } from "../core/diagnostics/diagnostics";
 import { formatBytes, formatDuration } from "../core/progress/formatters";
+import { useI18n } from "../i18n/i18n";
 
 interface DiagnosticsPanelProps {
   capabilities: DeviceCapabilities | null;
@@ -33,6 +34,7 @@ interface DiagnosticsPanelProps {
 }
 
 export function DiagnosticsPanel(props: DiagnosticsPanelProps): JSX.Element {
+  const { t } = useI18n();
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async (): Promise<void> => {
@@ -56,12 +58,12 @@ export function DiagnosticsPanel(props: DiagnosticsPanelProps): JSX.Element {
   return (
     <section className="card">
       <details>
-        <summary>Diagnostics</summary>
+        <summary>{t("diag.title")}</summary>
         <div style={{ marginTop: 10 }}>
           <div className="row spread">
-            <h3>Summary</h3>
+            <h3>{t("diag.title")}</h3>
             <button className="small ghost" onClick={() => void handleCopy()}>
-              {copied ? "Copied!" : "Copy Diagnostics JSON"}
+              {copied ? t("diag.copied") : t("diag.copy")}
             </button>
           </div>
 

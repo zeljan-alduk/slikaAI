@@ -1,6 +1,7 @@
 import type { ModelRegistryEntry, CachedModelInfo, AppSettings } from "../core/models/types";
 import { MODEL_REGISTRY } from "../core/models/modelRegistry";
 import { formatBytes, formatTimestamp } from "../core/progress/formatters";
+import { useI18n } from "../i18n/i18n";
 
 interface ModelManagerProps {
   cachedModels: CachedModelInfo[];
@@ -25,39 +26,42 @@ export function ModelManager({
   onSetSaverDays,
   disabled,
 }: ModelManagerProps): JSX.Element {
+  const { t } = useI18n();
   const cachedById = new Map(cachedModels.map((c) => [c.modelId, c]));
   const totalBytes = cachedModels.reduce((sum, c) => sum + c.sizeBytes, 0);
 
   return (
     <section className="card">
       <div className="row spread">
-        <h2>Model manager</h2>
+        <h2>{t("manager.title")}</h2>
         <button className="small ghost" onClick={onRefresh} disabled={disabled}>
-          Check cache
+          {t("manager.checkCache")}
         </button>
       </div>
-      <p className="muted">Total AI storage used: {formatBytes(totalBytes)}</p>
+      <p className="muted">{t("manager.totalUsed", { size: formatBytes(totalBytes) })}</p>
 
       <div className="table-scroll" style={{ marginTop: 8 }}>
         <table>
           <thead>
             <tr>
-              <th>Model</th>
-              <th>Version</th>
-              <th>Size</th>
-              <th>Status</th>
-              <th>Last used</th>
-              <th>Actions</th>
+              <th>{t("manager.col.model")}</th>
+              <th>{t("manager.col.version")}</th>
+              <th>{t("manager.col.size")}</th>
+              <th>{t("manager.col.status")}</th>
+              <th>{t("manager.col.lastUsed")}</th>
+              <th>{t("manager.col.actions")}</th>
             </tr>
           </thead>
           <tbody>
             {MODEL_REGISTRY.map((model) => {
               const cached = cachedById.get(model.id);
               const status = cached
-                ? "Cached"
-                : model.modelUrl
-                  ? "Not downloaded"
-                  : "Mock only";
+                ? t("manager.status.cached")
+                : model.transformersModelId
+                  ? t("manager.status.real")
+                  : model.modelUrl
+                    ? t("manager.status.notDownloaded")
+                    : t("manager.status.mockOnly");
               return (
                 <tr key={model.id}>
                   <td>{model.name}</td>
@@ -67,7 +71,7 @@ export function ModelManager({
                   </td>
                   <td>
                     <span
-                      className={`badge ${cached ? "success" : model.modelUrl ? "" : "warn"}`}
+                      className={`badge ${cached ? "success" : model.transformersModelId ? "accent" : model.modelUrl ? "" : "warn"}`}
                     >
                       {status}
                     </span>
@@ -81,7 +85,7 @@ export function ModelManager({
                           onClick={() => onDelete(model.id)}
                           disabled={disabled}
                         >
-                          Delete
+                          {t("manager.delete")}
                         </button>
                       )}
                       {model.modelUrl && (
@@ -90,7 +94,7 @@ export function ModelManager({
                           onClick={() => onRedownload(model)}
                           disabled={disabled}
                         >
-                          {cached ? "Re-download" : "Download"}
+                          {cached ? t("manager.redownload") : t("manager.download")}
                         </button>
                       )}
                     </div>
@@ -112,7 +116,7 @@ export function ModelManager({
             style={{ width: "auto" }}
           />
           <span>
-            Storage saver: auto-remove models unused for{" "}
+            {t("manager.saver")}{" "}
             <input
               type="text"
               inputMode="numeric"
@@ -124,11 +128,11 @@ export function ModelManager({
               disabled={disabled || !settings.storageSaverEnabled}
               style={{ width: 56, display: "inline-block", padding: "4px 6px", margin: "0 4px" }}
             />{" "}
-            days
+            {t("manager.saverDays")}
           </span>
         </label>
         <button className="small danger" onClick={onDeleteAll} disabled={disabled || cachedModels.length === 0}>
-          Delete all models
+          {t("manager.deleteAll")}
         </button>
       </div>
     </section>

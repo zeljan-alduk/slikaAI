@@ -9,6 +9,8 @@ export type RetouchTask =
   | "reference-guided-restore"
   | "unknown";
 
+export type InferenceEngine = "onnx" | "transformers" | "mock";
+
 export interface ModelRegistryEntry {
   id: string;
   name: string;
@@ -16,6 +18,12 @@ export interface ModelRegistryEntry {
   description: string;
   modelUrl: string | null;
   quantizedModelUrl?: string | null;
+  /**
+   * Hugging Face model id for the Transformers.js engine. When set (and the
+   * device supports a real backend), the task runs this real model. Downloaded
+   * on first use and cached by the browser (Cache Storage).
+   */
+  transformersModelId?: string | null;
   version: string;
   estimatedSizeMb: number;
   expectedInputSize: {

@@ -177,6 +177,37 @@ Every mock result is labelled “generated in mock mode”.
 
 ---
 
+## Real AI models (Transformers.js)
+
+Real in-browser inference uses **[Transformers.js](https://github.com/huggingface/transformers.js)**
+(`@huggingface/transformers`), which runs ONNX models on **WebGPU** (falling
+back to WASM) inside the inference Web Worker. Models are loaded from the
+Hugging Face Hub on first use and cached by the browser's **Cache Storage**
+(download once). Current mapping:
+
+| Task | Model |
+| --- | --- |
+| Background removal | `Xenova/modnet` (alpha matting → transparent PNG) |
+| Super-resolution 2x | `Xenova/swin2SR-classical-sr-x2-64` |
+| Enhance / Denoise / Restore | `Xenova/swin2SR-compressed-sr-x4-48` (restoration backbone) |
+
+Notes:
+- Super-res/restore inputs are capped (~512px longest edge) to keep in-browser
+  inference feasible; restoration results are scaled back to the working size.
+- If a real model fails to load/run, the pipeline **automatically falls back to
+  the mock processor** (clearly labelled) so the app never hard-fails.
+- Reference-guided identity transfer still needs a dedicated model; until one is
+  wired it runs the restoration backbone and stays labelled as simulated.
+- These real models are **not exercised in this sandbox** (no WebGPU here);
+  validate inference in a real browser.
+
+## Theme & language
+
+- **Theme:** light / dark with a one-tap toggle in the header. Defaults to the
+  **system** preference and remembers your choice (localStorage, UI-only).
+- **Language:** **Croatian-first**, with an EN/HR switch in the header. The
+  prompt parser understands both Croatian and English free text.
+
 ## Honesty notes
 
 - Mock results are simulated and clearly marked. They are **not** production AI.
