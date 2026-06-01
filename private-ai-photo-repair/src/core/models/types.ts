@@ -24,6 +24,11 @@ export interface ModelRegistryEntry {
    * on first use and cached by the browser (Cache Storage).
    */
   transformersModelId?: string | null;
+  /**
+   * Optional lighter/faster Transformers.js model used in "fast" quality mode.
+   * Falls back to transformersModelId when absent.
+   */
+  fastTransformersModelId?: string | null;
   version: string;
   estimatedSizeMb: number;
   expectedInputSize: {
@@ -124,11 +129,19 @@ export interface AppSettings {
    * WebAssembly (CPU) backend is used unless this is explicitly enabled.
    */
   preferWebGpu: boolean;
+  /**
+   * "fast" uses a lighter model (quicker, especially on CPU); "quality" uses the
+   * heavier model for more detail. Defaults to "fast" since CPU is the default.
+   */
+  qualityMode: QualityMode;
 }
+
+export type QualityMode = "fast" | "quality";
 
 export const DEFAULT_SETTINGS: AppSettings = {
   storageSaverEnabled: false,
   storageSaverMaxAgeDays: 30,
   promptModelSetupOnStart: true,
   preferWebGpu: false,
+  qualityMode: "fast",
 };

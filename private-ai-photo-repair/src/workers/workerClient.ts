@@ -3,6 +3,7 @@ import type {
   ModelRegistryEntry,
   InferenceEngine,
   ModelLoadProgress,
+  QualityMode,
 } from "../core/models/types";
 import type { RetouchIntent } from "../core/prompt/promptTypes";
 import type { UserImageAsset, ReferenceImageAsset } from "../core/image/types";
@@ -44,6 +45,7 @@ export interface RunInferenceParams {
   engine: InferenceEngine;
   useMock: boolean;
   maxWorkingSize: number;
+  qualityMode: QualityMode;
 }
 
 export class ProcessingCancelledError extends Error {
@@ -182,6 +184,7 @@ export function runInferenceInWorker(
             engine: params.engine,
             useMock: params.useMock,
             maxWorkingSize: params.maxWorkingSize,
+            qualityMode: params.qualityMode,
           },
         };
         const transfer: Transferable[] = [main.bitmap, ...refs.map((r) => r.bitmap)];
@@ -222,6 +225,7 @@ export interface PrefetchHandle {
 export function prefetchModelInWorker(
   model: ModelRegistryEntry,
   backend: InferenceBackend,
+  qualityMode: QualityMode,
   onModelLoad: (p: ModelLoadProgress) => void,
 ): PrefetchHandle {
   const worker = new Worker(new URL("./inference.worker.ts", import.meta.url), {
@@ -246,7 +250,10 @@ export function prefetchModelInWorker(
       reject(new Error(event.message || "Prefetch worker crashed."));
       worker.terminate();
     };
-    worker.postMessage({ type: "prefetch-model", payload: { taskId, model, backend } });
+    worker.postMessage({
+      type: "prefetch-model",
+      payload: { taskId, model, backend, qualityMode },
+    });
   });
 
   return {

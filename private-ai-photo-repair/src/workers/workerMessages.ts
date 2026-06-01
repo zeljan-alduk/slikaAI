@@ -4,6 +4,7 @@ import type {
   RetouchTask,
   InferenceEngine,
   ModelLoadProgress,
+  QualityMode,
 } from "../core/models/types";
 import type { RetouchIntent } from "../core/prompt/promptTypes";
 import type {
@@ -28,6 +29,7 @@ export interface StartInferenceMessage {
     engine: InferenceEngine;
     useMock: boolean;
     maxWorkingSize: number;
+    qualityMode: QualityMode;
   };
 }
 
@@ -42,6 +44,7 @@ export interface PrefetchModelMessage {
     taskId: string;
     model: ModelRegistryEntry;
     backend: InferenceBackend;
+    qualityMode: QualityMode;
   };
 }
 

@@ -110,6 +110,13 @@ const HR: Dict = {
   "process.hint.readyFirstUse":
     "Spremno. Pravi model će se preuzeti pri prvom korištenju (zatim se sprema lokalno).",
   "process.hint.ready": "Spremno za lokalnu obradu.",
+  "process.quality.label": "Način obrade",
+  "process.quality.fast": "Brzo",
+  "process.quality.quality": "Kvalitetno",
+  "process.quality.fastHint":
+    "Lakši model — puno brže (osobito na CPU-u), uz nešto manje detalja.",
+  "process.quality.qualityHint":
+    "Jači model — više detalja, ali sporije. Preporučeno uz WebGPU.",
   "process.start": "Pokreni",
   "process.processing": "Obrađujem…",
   "process.cancel": "Odustani",
@@ -315,6 +322,13 @@ const EN: Dict = {
   "process.hint.readyFirstUse":
     "Ready. The real model downloads on first use (then cached locally).",
   "process.hint.ready": "Ready to process locally.",
+  "process.quality.label": "Processing mode",
+  "process.quality.fast": "Fast",
+  "process.quality.quality": "Quality",
+  "process.quality.fastHint":
+    "Lighter model — much faster (especially on CPU), with slightly less detail.",
+  "process.quality.qualityHint":
+    "Heavier model — more detail but slower. Recommended with WebGPU.",
   "process.start": "Start",
   "process.processing": "Processing…",
   "process.cancel": "Cancel",

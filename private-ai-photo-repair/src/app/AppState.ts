@@ -6,6 +6,7 @@ import type {
   DownloadProgress,
   ModelLoadProgress,
   AppSettings,
+  QualityMode,
 } from "../core/models/types";
 import { DEFAULT_SETTINGS } from "../core/models/types";
 import type { RetouchIntent } from "../core/prompt/promptTypes";
@@ -27,7 +28,7 @@ import {
 import { parseRetouchPrompt } from "../core/prompt/parseRetouchPrompt";
 import { selectModelForTask, type ModelSelection } from "../core/models/modelSelector";
 import { planPipeline, type PipelinePlan } from "../core/inference/pipelineFactory";
-import { MODEL_REGISTRY } from "../core/models/modelRegistry";
+import { MODEL_REGISTRY, resolveTransformersModelId } from "../core/models/modelRegistry";
 import { modelCache, DownloadCancelledError, runStorageSaver } from "../core/models/modelCache";
 import {
   getCachedTransformersModelIds,
@@ -160,6 +161,7 @@ export interface AppController {
   setStorageSaver: (enabled: boolean) => Promise<void>;
   setStorageSaverDays: (days: number) => Promise<void>;
   setPreferWebGpu: (enabled: boolean) => Promise<void>;
+  setQualityMode: (mode: QualityMode) => Promise<void>;
   startModelSetup: (modelIds: string[]) => Promise<void>;
   cancelModelSetup: () => void;
   dismissModelSetup: (dontAskAgain: boolean) => Promise<void>;
@@ -441,24 +443,28 @@ export function useAppController(): AppController {
   }, []);
 
   const refreshTransformersReady = useCallback(async () => {
-    const tfIds = MODEL_REGISTRY.map((m) => m.transformersModelId).filter(
+    const qualityMode = settings.qualityMode;
+    // Readiness is per active variant: a model is "ready" only when the model
+    // file for the current quality mode is present in the browser cache.
+    const tfIds = MODEL_REGISTRY.map((m) => resolveTransformersModelId(m, qualityMode)).filter(
       (v): v is string => !!v,
     );
     const present = await getCachedTransformersModelIds(tfIds).catch(() => new Set<string>());
     const readyModelIds = new Set(
-      MODEL_REGISTRY.filter(
-        (m) => m.transformersModelId && present.has(m.transformersModelId),
-      ).map((m) => m.id),
+      MODEL_REGISTRY.filter((m) => {
+        const active = resolveTransformersModelId(m, qualityMode);
+        return active !== null && present.has(active);
+      }).map((m) => m.id),
     );
     setTransformersReady(readyModelIds);
-  }, []);
+  }, [settings.qualityMode]);
 
   // Pre-download a model (Transformers.js prefetch or ONNX cache) with visible
   // progress, so the user can confirm a model is actually on the device.
   const prefetchModel = useCallback(
     async (model: ModelRegistryEntry) => {
       setError(null);
-      if (model.transformersModelId && backend) {
+      if (resolveTransformersModelId(model, settings.qualityMode) && backend) {
         setPhase("downloading");
         setModelLoadProgress({
           modelId: model.id,
@@ -467,7 +473,12 @@ export function useAppController(): AppController {
           message: "Preparing model…",
           backend,
         });
-        const handle = prefetchModelInWorker(model, backend, setModelLoadProgress);
+        const handle = prefetchModelInWorker(
+          model,
+          backend,
+          settings.qualityMode,
+          setModelLoadProgress,
+        );
         prefetchHandleRef.current = handle;
         try {
           await handle.done;
@@ -485,7 +496,7 @@ export function useAppController(): AppController {
       }
       // ONNX models keep using the existing cache-download action in the manager.
     },
-    [backend, logMessage, refreshTransformersReady],
+    [backend, settings.qualityMode, logMessage, refreshTransformersReady],
   );
 
   const cancelPrefetch = useCallback(() => {
@@ -545,6 +556,7 @@ export function useAppController(): AppController {
         engine: plan.engine,
         useMock: plan.useMock,
         maxWorkingSize,
+        qualityMode: settings.qualityMode,
       },
       {
         onProgress: setProcessingProgress,
@@ -587,6 +599,7 @@ export function useAppController(): AppController {
     tier,
     referenceImages,
     maxWorkingSize,
+    settings,
     log,
     logMessage,
     refreshCachedModels,
@@ -661,6 +674,21 @@ export function useAppController(): AppController {
     },
     [settings, persistSettings],
   );
+
+  // Switch fast/quality mode and refresh which models are ready (the cached
+  // file differs per mode).
+  const setQualityMode = useCallback(
+    async (mode: QualityMode) => {
+      await persistSettings({ ...settings, qualityMode: mode });
+    },
+    [settings, persistSettings],
+  );
+
+  // When the quality mode changes the relevant cached model differs, so the
+  // ready set must be recomputed.
+  useEffect(() => {
+    void refreshTransformersReady();
+  }, [refreshTransformersReady]);
 
   // Toggle the WebGPU opt-in and re-select the backend immediately.
   const setPreferWebGpu = useCallback(
@@ -841,6 +869,7 @@ export function useAppController(): AppController {
     setStorageSaver,
     setStorageSaverDays,
     setPreferWebGpu,
+    setQualityMode,
     startModelSetup,
     cancelModelSetup,
     dismissModelSetup,

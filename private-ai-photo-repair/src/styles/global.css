@@ -743,6 +743,32 @@ th {
   margin: 0 -4px;
 }
 
+.segmented {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  overflow: hidden;
+}
+
+.segmented .seg {
+  border: none;
+  border-radius: 0;
+  background: var(--surface-2);
+  color: var(--text);
+  padding: 8px 18px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.segmented .seg + .seg {
+  border-left: 1px solid var(--border);
+}
+
+.segmented .seg.active {
+  background: var(--accent);
+  color: #fff;
+}
+
 .model-row {
   display: flex;
   align-items: center;

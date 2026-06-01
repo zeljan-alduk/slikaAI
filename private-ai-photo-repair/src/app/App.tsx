@@ -94,6 +94,34 @@ export function App(): JSX.Element {
             {modelWarning}
           </p>
         )}
+
+        <div style={{ marginTop: 12 }}>
+          <span className="muted" style={{ fontSize: "0.8rem" }}>
+            {t("process.quality.label")}
+          </span>
+          <div className="segmented" style={{ marginTop: 6 }}>
+            <button
+              className={c.settings.qualityMode === "fast" ? "seg active" : "seg"}
+              onClick={() => void c.setQualityMode("fast")}
+              disabled={c.isBusy}
+            >
+              {t("process.quality.fast")}
+            </button>
+            <button
+              className={c.settings.qualityMode === "quality" ? "seg active" : "seg"}
+              onClick={() => void c.setQualityMode("quality")}
+              disabled={c.isBusy}
+            >
+              {t("process.quality.quality")}
+            </button>
+          </div>
+          <p className="muted" style={{ fontSize: "0.76rem", marginTop: 6 }}>
+            {c.settings.qualityMode === "fast"
+              ? t("process.quality.fastHint")
+              : t("process.quality.qualityHint")}
+          </p>
+        </div>
+
         <div style={{ marginTop: 12 }}>
           <button
             className="primary cta"

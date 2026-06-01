@@ -4,7 +4,9 @@ import type {
   RetouchTask,
   InferenceEngine,
   ModelLoadProgress,
+  QualityMode,
 } from "../models/types";
+import { resolveTransformersModelId } from "../models/modelRegistry";
 import { formatBytes } from "../progress/formatters";
 import type { RetouchIntent } from "../prompt/promptTypes";
 import type {
@@ -43,6 +45,7 @@ export interface PipelineRunInput {
   engine: InferenceEngine;
   useMock: boolean;
   maxWorkingSize: number;
+  qualityMode: QualityMode;
   signal: AbortSignal;
   onModelProgress?: (p: ModelLoadProgress) => void;
 }
@@ -234,9 +237,13 @@ async function maybeRealInference(
 
   // Preferred path: real Transformers.js model. On failure we surface the reason
   // and fall back to the mock pipeline so the app never hard-fails.
-  if (input.engine === "transformers" && input.model.transformersModelId) {
+  const tfModelId =
+    input.engine === "transformers"
+      ? resolveTransformersModelId(input.model, input.qualityMode)
+      : null;
+  if (input.engine === "transformers" && tfModelId) {
     try {
-      log.info(`Loading real model "${input.model.transformersModelId}" (Transformers.js)…`);
+      log.info(`Loading real model "${tfModelId}" (Transformers.js, ${input.qualityMode})…`);
       input.onModelProgress?.({
         modelId: input.model.id,
         status: "loading-model-file",
@@ -246,7 +253,7 @@ async function maybeRealInference(
       });
       const out = await runTransformersTask(
         input.model.task,
-        input.model.transformersModelId,
+        tfModelId,
         working,
         {
           device: input.backend === "webgpu" ? "webgpu" : "wasm",

@@ -11,6 +11,7 @@ import { imageDataFromBitmap } from "../core/image/canvasUtils";
 import { runPipeline } from "../core/inference/ImageInferencePipeline";
 import { CancelledError } from "../core/inference/MockPipelines";
 import { preloadTransformersTask } from "../core/inference/TransformersPipeline";
+import { resolveTransformersModelId } from "../core/models/modelRegistry";
 import { formatBytes } from "../core/progress/formatters";
 
 const ctx = self as unknown as DedicatedWorkerGlobalScope;
@@ -40,8 +41,9 @@ ctx.addEventListener("message", (event: MessageEvent<WorkerInboundMessage>) => {
 async function handlePrefetch(
   payload: import("./workerMessages").PrefetchModelMessage["payload"],
 ): Promise<void> {
-  const { taskId, model, backend } = payload;
+  const { taskId, model, backend, qualityMode } = payload;
   const device = backend === "webgpu" ? "webgpu" : "wasm";
+  const tfModelId = resolveTransformersModelId(model, qualityMode);
   const files = new Map<string, { loaded: number; total: number }>();
   let lastEmit = 0;
   const report = (force: boolean): void => {
@@ -71,10 +73,10 @@ async function handlePrefetch(
     });
   };
   try {
-    if (!model.transformersModelId) {
+    if (!tfModelId) {
       throw new Error("This model has no Transformers.js id to prefetch.");
     }
-    await preloadTransformersTask(model.task, model.transformersModelId, {
+    await preloadTransformersTask(model.task, tfModelId, {
       device,
       progressCallback: (d) => {
         if (!d.file) return;
@@ -156,6 +158,7 @@ async function handleStart(
         engine: payload.engine,
         useMock: payload.useMock,
         maxWorkingSize: payload.maxWorkingSize,
+        qualityMode: payload.qualityMode,
         signal: controller.signal,
         onModelProgress: (p) => post({ type: "model-load", taskId, payload: p }),
       },

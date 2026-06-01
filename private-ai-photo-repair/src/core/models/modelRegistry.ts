@@ -1,4 +1,4 @@
-import type { ModelRegistryEntry } from "./types";
+import type { ModelRegistryEntry, QualityMode } from "./types";
 
 function envUrl(value: string | undefined): string | null {
   if (!value) return null;
@@ -22,6 +22,7 @@ export const MODEL_REGISTRY: ModelRegistryEntry[] = [
       "General quality boost that cleans compression artifacts and restores detail.",
     modelUrl: envUrl(import.meta.env.VITE_ENHANCE_MODEL_URL),
     transformersModelId: "Xenova/swin2SR-compressed-sr-x4-48",
+    fastTransformersModelId: "Xenova/swin2SR-lightweight-x2-64",
     version: "1.0.0",
     estimatedSizeMb: 25,
     expectedInputSize: { width: 512, height: 512 },
@@ -39,6 +40,7 @@ export const MODEL_REGISTRY: ModelRegistryEntry[] = [
     description: "Reduces sensor and compression noise while preserving edges.",
     modelUrl: envUrl(import.meta.env.VITE_DENOISE_MODEL_URL),
     transformersModelId: "Xenova/swin2SR-compressed-sr-x4-48",
+    fastTransformersModelId: "Xenova/swin2SR-lightweight-x2-64",
     version: "1.0.0",
     estimatedSizeMb: 45,
     expectedInputSize: { width: 512, height: 512 },
@@ -73,6 +75,7 @@ export const MODEL_REGISTRY: ModelRegistryEntry[] = [
     description: "Upscales the image 2x using a Swin2SR super-resolution model.",
     modelUrl: envUrl(import.meta.env.VITE_SUPER_RESOLUTION_MODEL_URL),
     transformersModelId: "Xenova/swin2SR-classical-sr-x2-64",
+    fastTransformersModelId: "Xenova/swin2SR-lightweight-x2-64",
     version: "1.0.0",
     estimatedSizeMb: 120,
     expectedInputSize: { width: 256, height: 256 },
@@ -91,6 +94,7 @@ export const MODEL_REGISTRY: ModelRegistryEntry[] = [
       "Restores faded, scratched and damaged old photographs with colour balancing.",
     modelUrl: envUrl(import.meta.env.VITE_RESTORE_OLD_PHOTO_MODEL_URL),
     transformersModelId: "Xenova/swin2SR-compressed-sr-x4-48",
+    fastTransformersModelId: "Xenova/swin2SR-lightweight-x2-64",
     version: "1.0.0",
     estimatedSizeMb: 180,
     expectedInputSize: { width: 512, height: 512 },
@@ -111,6 +115,7 @@ export const MODEL_REGISTRY: ModelRegistryEntry[] = [
     // Reference identity transfer needs a dedicated model; until one is wired,
     // this runs a real restoration backbone and stays clearly labelled.
     transformersModelId: "Xenova/swin2SR-compressed-sr-x4-48",
+    fastTransformersModelId: "Xenova/swin2SR-lightweight-x2-64",
     version: "1.0.0",
     estimatedSizeMb: 500,
     expectedInputSize: { width: 512, height: 512 },
@@ -125,6 +130,20 @@ export const MODEL_REGISTRY: ModelRegistryEntry[] = [
 
 export function getModelById(id: string): ModelRegistryEntry | null {
   return MODEL_REGISTRY.find((m) => m.id === id) ?? null;
+}
+
+/**
+ * The Transformers.js model id to use for a given quality mode. "fast" uses the
+ * lighter variant when one exists; otherwise the default model is used.
+ */
+export function resolveTransformersModelId(
+  model: ModelRegistryEntry,
+  qualityMode: QualityMode,
+): string | null {
+  if (qualityMode === "fast" && model.fastTransformersModelId) {
+    return model.fastTransformersModelId;
+  }
+  return model.transformersModelId ?? null;
 }
 
 /** Whether a model has any real engine configured (ONNX URL or Transformers.js). */
