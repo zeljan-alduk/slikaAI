@@ -1,13 +1,13 @@
 name: Private AI Photo Repair
 
-# Builds (CI) the private-ai-photo-repair Vite app on every push/PR that touches
-# it, and deploys the static build to GitHub Pages on main, on the feature
-# branch (for a live preview), and on manual dispatch.
+# CI builds the private-ai-photo-repair Vite app on every push/PR that touches
+# it. Deployment to GitHub Pages runs only from the default branch (main),
+# because the github-pages environment only permits deployments from the
+# default branch. Manual runs are also supported via workflow_dispatch.
 on:
   push:
     branches:
       - main
-      - claude/private-ai-photo-repair-eyyft
     paths:
       - "private-ai-photo-repair/**"
       - ".github/workflows/private-ai-photo-repair.yml"
@@ -49,20 +49,20 @@ jobs:
       - name: Type-check and build
         run: npm run build
 
+      # Only prepare the Pages artifact when we intend to deploy (main branch).
       - name: Configure Pages
-        if: github.event_name != 'pull_request'
+        if: github.ref == 'refs/heads/main'
         uses: actions/configure-pages@v5
-        with:
-          enablement: true
 
       - name: Upload Pages artifact
-        if: github.event_name != 'pull_request'
+        if: github.ref == 'refs/heads/main'
         uses: actions/upload-pages-artifact@v3
         with:
           path: private-ai-photo-repair/dist
 
   deploy:
-    if: github.event_name != 'pull_request'
+    # Deploy only from the default branch; PRs and other branches are CI-only.
+    if: github.ref == 'refs/heads/main'
     needs: build
     runs-on: ubuntu-latest
     environment:
