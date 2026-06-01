@@ -2,6 +2,7 @@ import { useId, useRef, useState } from "react";
 import type { UserImageAsset } from "../core/image/types";
 import { formatBytes } from "../core/progress/formatters";
 import { useI18n } from "../i18n/i18n";
+import { UploadCloud } from "./Icons";
 
 interface ImageUploaderProps {
   asset: UserImageAsset | null;
@@ -51,9 +52,11 @@ export function ImageUploader({
           }}
           style={{ marginTop: 10 }}
         >
-          <div style={{ fontSize: "1.6rem" }}>🖼️</div>
-          <div>{t("image.drop")}</div>
-          <div className="muted">{t("image.stays")}</div>
+          <span className="dz-icon">
+            <UploadCloud size={30} />
+          </span>
+          <div className="dz-title">{t("image.drop")}</div>
+          <div className="dz-sub">{t("image.stays")}</div>
           <input
             id={inputId}
             ref={inputRef}

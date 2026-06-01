@@ -17,6 +17,7 @@ import { ExportPanel } from "../components/ExportPanel";
 import { ModelManager } from "../components/ModelManager";
 import { DiagnosticsPanel } from "../components/DiagnosticsPanel";
 import { ErrorBanner } from "../components/ErrorBanner";
+import { SparkleIcon } from "../components/Icons";
 import { useI18n } from "../i18n/i18n";
 
 export function App(): JSX.Element {
@@ -87,16 +88,21 @@ export function App(): JSX.Element {
             {modelWarning}
           </p>
         )}
-        <div className="row" style={{ marginTop: 8 }}>
+        <div style={{ marginTop: 12 }}>
           <button
-            className="primary"
+            className="primary cta"
             onClick={() => void c.startProcessing()}
             disabled={!canStart}
           >
+            <SparkleIcon size={18} />
             {c.phase === "processing" ? t("process.processing") : t("process.start")}
           </button>
           {c.phase === "processing" && (
-            <button className="danger" onClick={c.cancelProcessing}>
+            <button
+              className="danger"
+              onClick={c.cancelProcessing}
+              style={{ width: "100%", marginTop: 8 }}
+            >
               {t("process.cancel")}
             </button>
           )}
