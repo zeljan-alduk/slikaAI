@@ -48,17 +48,34 @@ export class ProcessingCancelledError extends Error {
   }
 }
 
+/**
+ * Decode the file to an ImageBitmap, downscaling at decode time so the worker
+ * never receives a buffer larger than `maxSize` on its longest side. This keeps
+ * peak memory low and avoids OOM crashes with large phone photos.
+ */
 async function toTransfer(
   asset: UserImageAsset,
+  maxSize: number,
 ): Promise<{ transfer: UserImageAssetTransfer; bitmap: ImageBitmap }> {
-  const bitmap = await createImageBitmap(asset.file);
+  const longest = Math.max(asset.width, asset.height);
+  let bitmap: ImageBitmap;
+  if (longest > maxSize) {
+    const scale = maxSize / longest;
+    bitmap = await createImageBitmap(asset.file, {
+      resizeWidth: Math.max(1, Math.round(asset.width * scale)),
+      resizeHeight: Math.max(1, Math.round(asset.height * scale)),
+      resizeQuality: "high",
+    });
+  } else {
+    bitmap = await createImageBitmap(asset.file);
+  }
   return {
     transfer: {
       id: asset.id,
       role: asset.role,
       bitmap,
-      width: asset.width,
-      height: asset.height,
+      width: bitmap.width,
+      height: bitmap.height,
       mimeType: asset.mimeType,
       sizeBytes: asset.sizeBytes,
       fileName: asset.file.name,
@@ -82,11 +99,13 @@ export function runInferenceInWorker(
   const result = new Promise<InferenceResult>((resolve, reject) => {
     void (async () => {
       try {
-        const main = await toTransfer(params.mainImage);
+        // References are only analysed (quality/face heuristics), so cap them smaller.
+        const refCap = Math.min(params.maxWorkingSize, 768);
+        const main = await toTransfer(params.mainImage, params.maxWorkingSize);
         const refs: { transfer: ReferenceImageAssetTransfer; bitmap: ImageBitmap }[] =
           await Promise.all(
             params.referenceImages.map(async (ref) => {
-              const t = await toTransfer(ref);
+              const t = await toTransfer(ref, refCap);
               return {
                 transfer: { ...t.transfer, role: "reference", referenceType: ref.referenceType },
                 bitmap: t.bitmap,
