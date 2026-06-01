@@ -1,6 +1,7 @@
 import type { ProcessingProgress } from "../core/progress/progressTypes";
 import { ProgressBar } from "./ProgressBar";
 import { formatDuration } from "../core/progress/formatters";
+import { useI18n } from "../i18n/i18n";
 
 interface ProcessingTimelineProps {
   progress: ProcessingProgress | null;
@@ -8,13 +9,14 @@ interface ProcessingTimelineProps {
 }
 
 export function ProcessingTimeline({ progress, onCancel }: ProcessingTimelineProps): JSX.Element | null {
+  const { t } = useI18n();
   if (!progress || progress.status === "idle") return null;
   const running = progress.status === "running";
 
   return (
     <section className="card">
       <div className="row spread">
-        <h2>Processing</h2>
+        <h2>{t("processing.title")}</h2>
         <span className="badge">{progress.status}</span>
       </div>
       <ProgressBar percentage={progress.overallPercentage} />
@@ -40,7 +42,7 @@ export function ProcessingTimeline({ progress, onCancel }: ProcessingTimelinePro
       {running && (
         <div className="row" style={{ marginTop: 8 }}>
           <button className="small danger" onClick={onCancel}>
-            Cancel processing
+            {t("processing.cancel")}
           </button>
         </div>
       )}

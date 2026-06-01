@@ -7,6 +7,7 @@ import {
   formatSpeed,
   formatDuration,
 } from "../core/progress/formatters";
+import { useI18n } from "../i18n/i18n";
 
 interface ModelSetupCardProps {
   models: ModelRegistryEntry[];
@@ -29,6 +30,7 @@ export function ModelSetupCard({
   onCancel,
   onDismiss,
 }: ModelSetupCardProps): JSX.Element {
+  const { t } = useI18n();
   const [selected, setSelected] = useState<Set<string>>(
     () => new Set(models.map((m) => m.id)),
   );
@@ -53,17 +55,17 @@ export function ModelSetupCard({
 
   if (downloading) {
     const detail = (() => {
-      if (!progress) return "Starting…";
+      if (!progress) return t("setup.starting");
       if (progress.status === "downloading") {
         const parts: string[] = [];
         parts.push(
           progress.totalBytes
-            ? `${formatBytes(progress.downloadedBytes)} of ${formatBytes(progress.totalBytes)}`
-            : `${formatBytes(progress.downloadedBytes)} (size unknown)`,
+            ? `${formatBytes(progress.downloadedBytes)} / ${formatBytes(progress.totalBytes)}`
+            : formatBytes(progress.downloadedBytes),
         );
         parts.push(formatSpeed(progress.speedBytesPerSecond));
         if (progress.estimatedSecondsRemaining !== null) {
-          parts.push(`about ${formatDuration(progress.estimatedSecondsRemaining)} left`);
+          parts.push(formatDuration(progress.estimatedSecondsRemaining));
         }
         return parts.join(", ");
       }
@@ -72,11 +74,13 @@ export function ModelSetupCard({
 
     return (
       <section className="card" style={{ borderColor: "var(--accent)" }}>
-        <h2>Setting up AI models</h2>
+        <h2>{t("setup.title")}</h2>
         {queue && (
           <p className="muted">
-            Downloading model {Math.min(queue.completedCount + 1, queue.total)} of{" "}
-            {queue.total}
+            {t("setup.downloadingNum", {
+              current: Math.min(queue.completedCount + 1, queue.total),
+              total: queue.total,
+            })}
             {queue.currentName ? ` — ${queue.currentName}` : ""}
           </p>
         )}
@@ -84,13 +88,10 @@ export function ModelSetupCard({
         <p className="muted" style={{ marginTop: 8 }}>{detail}</p>
         <div className="row" style={{ marginTop: 8 }}>
           <button className="small danger" onClick={onCancel}>
-            Cancel
+            {t("common.cancel")}
           </button>
         </div>
-        <p className="muted" style={{ marginTop: 6 }}>
-          You can keep using the app while models download. They are stored locally
-          and reused next time.
-        </p>
+        <p className="muted" style={{ marginTop: 6 }}>{t("setup.keepUsing")}</p>
       </section>
     );
   }
@@ -100,14 +101,8 @@ export function ModelSetupCard({
 
   return (
     <section className="card" style={{ borderColor: "var(--accent)" }}>
-      <h2>Set up AI models</h2>
-      <p className="muted">
-        This app runs AI on your device. To use real AI tasks, the models below
-        need to be downloaded <strong>once</strong>. They are stored locally,
-        reused next time, and can be deleted any time. Your photos never leave
-        your device. Choose which to download now — or skip and download them
-        later when you first use a task.
-      </p>
+      <h2>{t("setup.titleSelect")}</h2>
+      <p className="muted">{t("setup.body")}</p>
 
       <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 8 }}>
         {models.map((model) => (
@@ -135,21 +130,20 @@ export function ModelSetupCard({
 
       <div className="kv-grid" style={{ marginTop: 12 }}>
         <div className="kv">
-          <span className="k">Selected total</span>
+          <span className="k">{t("setup.selectedTotal")}</span>
           <span className="v">{formatBytes(selectedSizeBytes)}</span>
         </div>
         <div className="kv">
-          <span className="k">Storage available</span>
+          <span className="k">{t("setup.storageAvail")}</span>
           <span className="v">
-            {freeStorageBytes !== null ? formatBytes(freeStorageBytes) : "Unknown"}
+            {freeStorageBytes !== null ? formatBytes(freeStorageBytes) : t("common.unknown")}
           </span>
         </div>
       </div>
 
       {!enoughStorage && (
         <p className="muted" style={{ color: "var(--warn)", marginTop: 8 }}>
-          ⚠ Not enough free browser storage for the selected models. Deselect some
-          or free up space.
+          {t("setup.notEnough")}
         </p>
       )}
 
@@ -160,7 +154,7 @@ export function ModelSetupCard({
           onChange={(e) => setDontAskAgain(e.target.checked)}
           style={{ width: "auto" }}
         />
-        <span className="muted">Don’t ask again on startup</span>
+        <span className="muted">{t("setup.dontAsk")}</span>
       </label>
 
       <div className="row" style={{ marginTop: 12 }}>
@@ -169,10 +163,10 @@ export function ModelSetupCard({
           onClick={() => onDownload([...selected])}
           disabled={selected.size === 0 || !enoughStorage}
         >
-          Download selected ({selected.size})
+          {t("setup.downloadSelected", { n: selected.size })}
         </button>
         <button className="ghost" onClick={() => onDismiss(dontAskAgain)}>
-          Not now
+          {t("setup.notNow")}
         </button>
       </div>
     </section>

@@ -71,6 +71,7 @@ async function handleStart(
         intent: payload.intent,
         model: payload.model,
         backend: payload.backend,
+        engine: payload.engine,
         useMock: payload.useMock,
         maxWorkingSize: payload.maxWorkingSize,
         signal: controller.signal,

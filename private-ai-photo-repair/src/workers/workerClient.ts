@@ -1,5 +1,5 @@
 import type { InferenceBackend } from "../core/capabilities/types";
-import type { ModelRegistryEntry } from "../core/models/types";
+import type { ModelRegistryEntry, InferenceEngine } from "../core/models/types";
 import type { RetouchIntent } from "../core/prompt/promptTypes";
 import type { UserImageAsset, ReferenceImageAsset } from "../core/image/types";
 import type {
@@ -36,6 +36,7 @@ export interface RunInferenceParams {
   intent: RetouchIntent;
   model: ModelRegistryEntry;
   backend: InferenceBackend;
+  engine: InferenceEngine;
   useMock: boolean;
   maxWorkingSize: number;
 }
@@ -151,6 +152,7 @@ export function runInferenceInWorker(
             intent: params.intent,
             model: params.model,
             backend: params.backend,
+            engine: params.engine,
             useMock: params.useMock,
             maxWorkingSize: params.maxWorkingSize,
           },

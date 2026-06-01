@@ -1,17 +1,18 @@
 import type { InferenceBackend } from "../capabilities/types";
-import type { ModelRegistryEntry } from "../models/types";
+import type { ModelRegistryEntry, InferenceEngine } from "../models/types";
 import { MOCK_MODE_ENABLED } from "../models/modelRegistry";
 
 export interface PipelinePlan {
   useMock: boolean;
+  engine: InferenceEngine;
   backend: InferenceBackend;
   reason: string;
 }
 
 /**
- * Decide whether a run uses the real ONNX pipeline or a mock pipeline, and
- * which backend label to report. The app prefers real inference when a model
- * URL exists and a real backend is available; otherwise it falls back to mock.
+ * Decide which engine a run uses (Transformers.js, raw ONNX, or mock) and which
+ * backend label to report. Preference: real Transformers.js model → real ONNX
+ * model → mock fallback.
  */
 export function planPipeline(
   model: ModelRegistryEntry,
@@ -20,9 +21,19 @@ export function planPipeline(
   const realBackendAvailable =
     deviceBackend === "webgpu" || deviceBackend === "wasm";
 
+  if (model.transformersModelId && realBackendAvailable) {
+    return {
+      useMock: false,
+      engine: "transformers",
+      backend: deviceBackend,
+      reason: "Real Transformers.js model available for this task.",
+    };
+  }
+
   if (model.modelUrl && realBackendAvailable) {
     return {
       useMock: false,
+      engine: "onnx",
       backend: deviceBackend,
       reason: "Real ONNX model configured and a compatible backend is available.",
     };
@@ -31,22 +42,18 @@ export function planPipeline(
   if (!MOCK_MODE_ENABLED) {
     return {
       useMock: false,
+      engine: model.transformersModelId ? "transformers" : "onnx",
       backend: deviceBackend,
       reason: "Mock mode is disabled; a real model is required.",
     };
   }
 
-  if (!model.modelUrl) {
-    return {
-      useMock: true,
-      backend: "mock",
-      reason: "No real model URL is configured for this task.",
-    };
-  }
-
   return {
     useMock: true,
+    engine: "mock",
     backend: "mock",
-    reason: "No real inference backend is available on this device.",
+    reason: realBackendAvailable
+      ? "No real model is configured for this task."
+      : "No real inference backend is available on this device.",
   };
 }

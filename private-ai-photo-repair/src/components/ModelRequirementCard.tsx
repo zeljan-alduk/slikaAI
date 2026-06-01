@@ -1,6 +1,7 @@
 import type { ModelRegistryEntry } from "../core/models/types";
 import type { PipelinePlan } from "../core/inference/pipelineFactory";
 import { formatBytes } from "../core/progress/formatters";
+import { useI18n } from "../i18n/i18n";
 
 interface ModelRequirementCardProps {
   model: ModelRegistryEntry | null;
@@ -19,101 +20,100 @@ export function ModelRequirementCard({
   onDownload,
   disabled,
 }: ModelRequirementCardProps): JSX.Element | null {
+  const { t } = useI18n();
   if (!model || !plan) return null;
 
   const sizeBytes = model.estimatedSizeMb * 1024 * 1024;
-  const insufficientStorage =
-    freeStorageBytes !== null && !cached && freeStorageBytes < sizeBytes;
-  const afterInstall =
-    freeStorageBytes !== null ? Math.max(0, freeStorageBytes - sizeBytes) : null;
 
+  // Mock mode.
   if (plan.useMock) {
     return (
       <section className="card">
         <div className="row spread">
-          <h2>AI model</h2>
-          <span className="badge warn">Mock mode</span>
+          <h2>{t("model.title")}</h2>
+          <span className="badge warn">{t("model.mockBadge")}</span>
         </div>
-        <p className="muted">
-          {model.modelUrl
-            ? "No real inference backend is available, so this task runs in mock mode."
-            : "No real model URL is configured for this task, so it runs in mock mode."}{" "}
-          Results are simulated and clearly labelled. No download is required.
-        </p>
-        <div className="kv-grid" style={{ marginTop: 8 }}>
-          <div className="kv">
-            <span className="k">Model</span>
-            <span className="v">{model.name}</span>
-          </div>
-          <div className="kv">
-            <span className="k">Version</span>
-            <span className="v">{model.version}</span>
-          </div>
-        </div>
+        <p className="muted">{t("model.mockBody")}</p>
       </section>
     );
   }
 
+  // Real model via Transformers.js — downloads on first use, cached by browser.
+  if (plan.engine === "transformers") {
+    return (
+      <section className="card">
+        <div className="row spread">
+          <h2>{t("model.title")}</h2>
+          <span className="badge accent">{t("model.realFirstUse")}</span>
+        </div>
+        <p className="muted">
+          {t("model.realFirstUseBody", { id: model.transformersModelId ?? model.name })}
+        </p>
+      </section>
+    );
+  }
+
+  // Raw ONNX model already cached.
   if (cached) {
     return (
       <section className="card">
         <div className="row spread">
-          <h2>AI model</h2>
-          <span className="badge success">Ready on device</span>
+          <h2>{t("model.title")}</h2>
+          <span className="badge success">{t("model.readyOnDevice")}</span>
         </div>
-        <p className="muted">
-          “{model.name}” (v{model.version}) is stored locally and will be reused.
-        </p>
+        <p className="muted">{t("model.readyBody", { name: model.name, version: model.version })}</p>
       </section>
     );
   }
 
+  // Raw ONNX model needs downloading.
+  const insufficientStorage =
+    freeStorageBytes !== null && freeStorageBytes < sizeBytes;
+  const afterInstall =
+    freeStorageBytes !== null ? Math.max(0, freeStorageBytes - sizeBytes) : null;
+
   return (
     <section className="card">
-      <h2>AI Model Required</h2>
-      <p className="muted">
-        To process photos directly on this device, this AI model must be
-        downloaded once.
-      </p>
+      <h2>{t("model.required")}</h2>
+      <p className="muted">{t("model.requiredBody")}</p>
       <ul className="privacy" style={{ marginTop: 4, paddingLeft: 18 }}>
-        <li>Downloaded only once</li>
-        <li>Stored locally on your device</li>
-        <li>Reused next time</li>
-        <li>Can be deleted at any time</li>
-        <li>Your photos stay on this device</li>
+        <li>{t("model.b1")}</li>
+        <li>{t("model.b2")}</li>
+        <li>{t("model.b3")}</li>
+        <li>{t("model.b4")}</li>
+        <li>{t("model.b5")}</li>
       </ul>
 
       <div className="kv-grid" style={{ marginTop: 12 }}>
         <div className="kv">
-          <span className="k">Model name</span>
+          <span className="k">{t("model.name")}</span>
           <span className="v">{model.name}</span>
         </div>
         <div className="kv">
-          <span className="k">Version</span>
+          <span className="k">{t("model.version")}</span>
           <span className="v">{model.version}</span>
         </div>
         <div className="kv">
-          <span className="k">Model size</span>
+          <span className="k">{t("model.size")}</span>
           <span className="v">{formatBytes(sizeBytes)}</span>
         </div>
         <div className="kv">
-          <span className="k">Storage available</span>
+          <span className="k">{t("model.storageAvail")}</span>
           <span className="v">
-            {freeStorageBytes !== null ? formatBytes(freeStorageBytes) : "Unknown"}
+            {freeStorageBytes !== null ? formatBytes(freeStorageBytes) : t("common.unknown")}
           </span>
         </div>
         <div className="kv">
-          <span className="k">Estimated space after install</span>
+          <span className="k">{t("model.afterInstall")}</span>
           <span className="v">
-            {afterInstall !== null ? formatBytes(afterInstall) : "Unknown"}
+            {afterInstall !== null ? formatBytes(afterInstall) : t("common.unknown")}
           </span>
         </div>
       </div>
 
       {insufficientStorage && (
         <p className="muted" style={{ color: "var(--warn)", marginTop: 10 }}>
-          ⚠ Not enough free browser storage is available for this model. You can
-          delete installed models or choose a smaller task.
+          {t("model.insufficient")}
         </p>
       )}
 
@@ -123,7 +123,7 @@ export function ModelRequirementCard({
           onClick={onDownload}
           disabled={disabled || insufficientStorage}
         >
-          Download Model
+          {t("model.download")}
         </button>
       </div>
     </section>

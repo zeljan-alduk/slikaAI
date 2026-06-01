@@ -5,6 +5,7 @@ import {
   defaultFormatForTask,
   type ExportFormat,
 } from "../core/image/imageExport";
+import { useI18n } from "../i18n/i18n";
 
 interface ExportPanelProps {
   result: InferenceResult | null;
@@ -12,6 +13,7 @@ interface ExportPanelProps {
 }
 
 export function ExportPanel({ result, onExport }: ExportPanelProps): JSX.Element | null {
+  const { t } = useI18n();
   const [format, setFormat] = useState<ExportFormat>("image/png");
 
   useEffect(() => {
@@ -23,10 +25,10 @@ export function ExportPanel({ result, onExport }: ExportPanelProps): JSX.Element
 
   return (
     <section className="card">
-      <h2>Export result</h2>
+      <h2>{t("export.title")}</h2>
       {result.taskType === "background-removal" && format !== "image/png" && (
         <p className="muted" style={{ color: "var(--warn)" }}>
-          ⚠ PNG is recommended for background removal to preserve transparency.
+          {t("export.pngRecommended")}
         </p>
       )}
       <div className="row" style={{ marginTop: 8 }}>
@@ -42,7 +44,7 @@ export function ExportPanel({ result, onExport }: ExportPanelProps): JSX.Element
           ))}
         </select>
         <button className="primary" onClick={() => onExport(format)}>
-          Download
+          {t("export.download")}
         </button>
       </div>
     </section>

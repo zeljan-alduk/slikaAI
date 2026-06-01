@@ -1,6 +1,7 @@
 import type { DownloadProgress } from "../core/models/types";
 import { ProgressBar } from "./ProgressBar";
 import { formatBytes, formatSpeed, formatDuration } from "../core/progress/formatters";
+import { useI18n } from "../i18n/i18n";
 
 interface DownloadProgressCardProps {
   progress: DownloadProgress | null;
@@ -15,6 +16,7 @@ const ACTIVE: DownloadProgress["status"][] = [
 ];
 
 export function DownloadProgressCard({ progress, onCancel }: DownloadProgressCardProps): JSX.Element | null {
+  const { t } = useI18n();
   if (!progress) return null;
   const isActive = ACTIVE.includes(progress.status);
   const isDownloading = progress.status === "downloading";
@@ -40,7 +42,7 @@ export function DownloadProgressCard({ progress, onCancel }: DownloadProgressCar
   return (
     <section className="card">
       <div className="row spread">
-        <h2>Model download</h2>
+        <h2>{t("download.title")}</h2>
         <span className="badge">{progress.status}</span>
       </div>
       <ProgressBar percentage={isDownloading ? progress.percentage : isActive ? null : 100} />
@@ -51,7 +53,7 @@ export function DownloadProgressCard({ progress, onCancel }: DownloadProgressCar
       {isActive && (
         <div className="row" style={{ marginTop: 8 }}>
           <button className="small danger" onClick={onCancel}>
-            Cancel download
+            {t("download.cancel")}
           </button>
         </div>
       )}

@@ -1,6 +1,7 @@
 import { useId, useRef, useState } from "react";
 import type { UserImageAsset } from "../core/image/types";
 import { formatBytes } from "../core/progress/formatters";
+import { useI18n } from "../i18n/i18n";
 
 interface ImageUploaderProps {
   asset: UserImageAsset | null;
@@ -17,6 +18,7 @@ export function ImageUploader({
   disabled,
   maxWorkingSize,
 }: ImageUploaderProps): JSX.Element {
+  const { t } = useI18n();
   const inputId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragover, setDragover] = useState(false);
@@ -30,8 +32,8 @@ export function ImageUploader({
 
   return (
     <section className="card">
-      <h2>Main photo</h2>
-      <p className="muted">Upload the photo you want to repair (JPEG, PNG or WebP).</p>
+      <h2>{t("image.title")}</h2>
+      <p className="muted">{t("image.help")}</p>
 
       {!asset ? (
         <label
@@ -50,8 +52,8 @@ export function ImageUploader({
           style={{ marginTop: 10 }}
         >
           <div style={{ fontSize: "1.6rem" }}>🖼️</div>
-          <div>Tap or drop an image here</div>
-          <div className="muted">It stays on your device.</div>
+          <div>{t("image.drop")}</div>
+          <div className="muted">{t("image.stays")}</div>
           <input
             id={inputId}
             ref={inputRef}
@@ -69,34 +71,33 @@ export function ImageUploader({
           </div>
           <div className="kv-grid" style={{ marginTop: 10 }}>
             <div className="kv">
-              <span className="k">Filename</span>
+              <span className="k">{t("image.filename")}</span>
               <span className="v" style={{ wordBreak: "break-all" }}>{asset.file.name}</span>
             </div>
             <div className="kv">
-              <span className="k">Size</span>
+              <span className="k">{t("image.size")}</span>
               <span className="v">{formatBytes(asset.sizeBytes)}</span>
             </div>
             <div className="kv">
-              <span className="k">Dimensions</span>
+              <span className="k">{t("image.dimensions")}</span>
               <span className="v">{asset.width} × {asset.height}</span>
             </div>
             <div className="kv">
-              <span className="k">Type</span>
+              <span className="k">{t("image.type")}</span>
               <span className="v">{asset.mimeType}</span>
             </div>
           </div>
           {tooLarge && (
             <p className="muted" style={{ color: "var(--warn)", marginTop: 8 }}>
-              ⚠ This image is large for this device and will be resized to{" "}
-              {maxWorkingSize}px (longest side) before processing.
+              {t("image.tooLarge", { n: maxWorkingSize })}
             </p>
           )}
           <div className="row" style={{ marginTop: 10 }}>
             <button className="small ghost" onClick={() => inputRef.current?.click()} disabled={disabled}>
-              Replace
+              {t("image.replace")}
             </button>
             <button className="small danger" onClick={onRemove} disabled={disabled}>
-              Remove
+              {t("image.remove")}
             </button>
             <input
               ref={inputRef}

@@ -16,6 +16,22 @@
   color-scheme: dark;
 }
 
+:root[data-theme="light"] {
+  --bg: #f4f6fb;
+  --bg-elevated: #ffffff;
+  --bg-card: #ffffff;
+  --border: #d6dbe4;
+  --text: #1a2230;
+  --text-muted: #5a6678;
+  --accent: #2f6bff;
+  --accent-hover: #1f59ef;
+  --success: #1a7f37;
+  --warn: #9a6700;
+  --danger: #d1242f;
+  --shadow: 0 8px 24px rgba(31, 45, 73, 0.12);
+  color-scheme: light;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -161,7 +177,18 @@ button.small {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  flex-wrap: wrap;
   padding-top: 8px;
+}
+
+.lang-switch {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.lang-switch button {
+  padding: 6px 10px;
+  min-height: 36px;
 }
 
 .header .title {

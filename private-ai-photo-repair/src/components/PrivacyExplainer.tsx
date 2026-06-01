@@ -1,19 +1,17 @@
+import { useI18n } from "../i18n/i18n";
+
 export function PrivacyExplainer(): JSX.Element {
+  const { t } = useI18n();
   return (
     <section className="card privacy">
-      <h2>Your photos never leave your device.</h2>
-      <p className="muted">
-        Most AI photo editors upload your images to cloud servers. This app works
-        differently. It downloads AI models to your device and runs them locally.
-        The first download may take some time, but it only happens once. You can
-        delete downloaded models at any time.
-      </p>
+      <h2>{t("privacy.title")}</h2>
+      <p className="muted">{t("privacy.body")}</p>
       <ul>
-        <li>Download AI models once.</li>
-        <li>Use them repeatedly.</li>
-        <li>Delete them whenever you want.</li>
-        <li>Process photos locally.</li>
-        <li>Keep photos private — no image upload in this MVP.</li>
+        <li>{t("privacy.p1")}</li>
+        <li>{t("privacy.p2")}</li>
+        <li>{t("privacy.p3")}</li>
+        <li>{t("privacy.p4")}</li>
+        <li>{t("privacy.p5")}</li>
       </ul>
     </section>
   );

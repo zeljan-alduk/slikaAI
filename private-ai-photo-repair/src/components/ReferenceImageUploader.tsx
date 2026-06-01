@@ -1,5 +1,6 @@
 import { useId } from "react";
 import type { ReferenceImageAsset, ReferenceType } from "../core/image/types";
+import { useI18n } from "../i18n/i18n";
 
 interface ReferenceImageUploaderProps {
   references: ReferenceImageAsset[];
@@ -9,12 +10,12 @@ interface ReferenceImageUploaderProps {
   disabled?: boolean;
 }
 
-const REFERENCE_TYPE_OPTIONS: { value: ReferenceType; label: string }[] = [
-  { value: "same-person", label: "Same person" },
-  { value: "same-face", label: "Same face" },
-  { value: "same-scene", label: "Same scene" },
-  { value: "color-style", label: "Color / style reference" },
-  { value: "unknown", label: "Unknown" },
+const REFERENCE_TYPES: ReferenceType[] = [
+  "same-person",
+  "same-face",
+  "same-scene",
+  "color-style",
+  "unknown",
 ];
 
 export function ReferenceImageUploader({
@@ -24,15 +25,13 @@ export function ReferenceImageUploader({
   onTypeChange,
   disabled,
 }: ReferenceImageUploaderProps): JSX.Element {
+  const { t } = useI18n();
   const inputId = useId();
 
   return (
     <section className="card">
-      <h2>Optional reference photos</h2>
-      <p className="muted">
-        Reference photos are used locally to guide restoration. They are not
-        uploaded. Use better-quality photos of the same person to guide a repair.
-      </p>
+      <h2>{t("ref.title")}</h2>
+      <p className="muted">{t("ref.help")}</p>
 
       {references.length > 0 && (
         <div className="ref-grid" style={{ marginTop: 12 }}>
@@ -43,21 +42,21 @@ export function ReferenceImageUploader({
                 value={ref.referenceType}
                 disabled={disabled}
                 onChange={(e) => onTypeChange(ref.id, e.target.value as ReferenceType)}
-                aria-label="Reference type"
+                aria-label={t("ref.typeAria")}
               >
-                {REFERENCE_TYPE_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
+                {REFERENCE_TYPES.map((value) => (
+                  <option key={value} value={value}>
+                    {t(`ref.type.${value}`)}
                   </option>
                 ))}
               </select>
               {ref.referenceType !== "same-person" && ref.referenceType !== "same-face" && (
                 <span className="muted" style={{ fontSize: "0.72rem" }}>
-                  Affects style/color only unless marked same person.
+                  {t("ref.styleOnly")}
                 </span>
               )}
               <button className="small danger" onClick={() => onRemove(ref.id)} disabled={disabled}>
-                Remove
+                {t("ref.remove")}
               </button>
             </div>
           ))}
@@ -66,7 +65,7 @@ export function ReferenceImageUploader({
 
       <label htmlFor={inputId} style={{ display: "inline-block", marginTop: 12 }}>
         <span className="badge accent" style={{ cursor: "pointer" }}>
-          + Add reference photo
+          {t("ref.add")}
         </span>
         <input
           id={inputId}
