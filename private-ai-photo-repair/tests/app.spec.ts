@@ -83,6 +83,15 @@ test("theme toggle switches the document theme", async ({ page }) => {
   await expect(html).toHaveAttribute("data-theme", "dark");
 });
 
+test("model manager lists models with status and a download action", async ({ page }) => {
+  await openApp(page);
+  await page.getByText("Model manager", { exact: true }).click();
+  await expect(page.getByText("Background Removal")).toBeVisible();
+  // Real models that aren't cached expose a Download button.
+  await expect(page.getByRole("button", { name: "Download" }).first()).toBeVisible();
+  await expect(page.getByText("Not downloaded").first()).toBeVisible();
+});
+
 test("language switch to Croatian updates the UI", async ({ page }) => {
   await openApp(page);
   await page.getByRole("button", { name: "HR", exact: true }).click();

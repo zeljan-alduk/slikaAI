@@ -1,5 +1,11 @@
 import type { InferenceBackend } from "../capabilities/types";
-import type { ModelRegistryEntry, RetouchTask, InferenceEngine } from "../models/types";
+import type {
+  ModelRegistryEntry,
+  RetouchTask,
+  InferenceEngine,
+  ModelLoadProgress,
+} from "../models/types";
+import { formatBytes } from "../progress/formatters";
 import type { RetouchIntent } from "../prompt/promptTypes";
 import type {
   ProcessingProgress,
@@ -38,6 +44,7 @@ export interface PipelineRunInput {
   useMock: boolean;
   maxWorkingSize: number;
   signal: AbortSignal;
+  onModelProgress?: (p: ModelLoadProgress) => void;
 }
 
 export interface PipelineCallbacks {
@@ -162,21 +169,81 @@ function prepareWorking(
   return resized.imageData;
 }
 
+/**
+ * Build a Transformers.js progress callback that reports real, aggregated
+ * download progress (across all model files) to the model-load card and logs.
+ */
+function makeTfProgress(
+  input: PipelineRunInput,
+  log: Logger,
+): (d: { status?: string; file?: string; loaded?: number; total?: number; progress?: number }) => void {
+  const backend = input.backend;
+  const files = new Map<string, { loaded: number; total: number }>();
+  let lastEmit = 0;
+  const emit = (force: boolean): void => {
+    const now = Date.now();
+    if (!force && now - lastEmit < 120) return;
+    lastEmit = now;
+    let loaded = 0;
+    let total = 0;
+    for (const v of files.values()) {
+      loaded += v.loaded;
+      total += v.total;
+    }
+    const percentage = total > 0 ? Math.min(100, Math.round((loaded / total) * 100)) : null;
+    input.onModelProgress?.({
+      modelId: input.model.id,
+      status: "loading-model-file",
+      percentage,
+      message:
+        total > 0
+          ? `Downloading model… ${formatBytes(loaded)} / ${formatBytes(total)}`
+          : "Loading model…",
+      backend,
+    });
+  };
+  return (d) => {
+    if (!d.file) return;
+    if (d.status === "initiate") {
+      files.set(d.file, { loaded: 0, total: d.total ?? 0 });
+      log.info(`Downloading ${d.file}…`);
+      emit(true);
+    } else if (d.status === "progress" || d.status === "download") {
+      const prev = files.get(d.file);
+      files.set(d.file, {
+        loaded: d.loaded ?? prev?.loaded ?? 0,
+        total: d.total ?? prev?.total ?? 0,
+      });
+      emit(false);
+    } else if (d.status === "done") {
+      const prev = files.get(d.file);
+      const total = d.total ?? prev?.total ?? 0;
+      files.set(d.file, { loaded: total, total });
+      emit(true);
+    }
+  };
+}
+
 async function maybeRealInference(
   input: PipelineRunInput,
   working: ImageData,
   log: Logger,
+  warnings: string[],
 ): Promise<ImageData | null> {
   if (input.useMock) return null;
 
-  // Preferred path: real Transformers.js model. On failure we log and fall back
-  // to the mock pipeline so the app never hard-fails.
+  // Preferred path: real Transformers.js model. On failure we surface the reason
+  // and fall back to the mock pipeline so the app never hard-fails.
   if (input.engine === "transformers" && input.model.transformersModelId) {
     try {
       log.info(`Loading real model "${input.model.transformersModelId}" (Transformers.js)…`);
-      // Throttle download logging so frequent progress callbacks don't flood the
-      // main thread with messages/re-renders (which caused UI jank).
-      const lastPct = new Map<string, number>();
+      input.onModelProgress?.({
+        modelId: input.model.id,
+        status: "loading-model-file",
+        percentage: null,
+        message: "Preparing model…",
+        backend: input.backend,
+      });
       const out = await runTransformersTask(
         input.model.task,
         input.model.transformersModelId,
@@ -184,29 +251,33 @@ async function maybeRealInference(
         {
           device: input.backend === "webgpu" ? "webgpu" : "wasm",
           signal: input.signal,
-          progressCallback: (d) => {
-            if (d.status === "initiate" && d.file) {
-              lastPct.set(d.file, 0);
-              log.info(`Downloading ${d.file}…`);
-            } else if (d.status === "progress" && d.file) {
-              const pct = Math.round(d.progress ?? 0);
-              const prev = lastPct.get(d.file) ?? -100;
-              if (pct - prev >= 25) {
-                lastPct.set(d.file, pct);
-                log.info(`Downloading ${d.file}: ${pct}%`);
-              }
-            } else if (d.status === "done" && d.file) {
-              log.info(`Downloaded ${d.file}.`);
-            }
-          },
+          progressCallback: makeTfProgress(input, log),
         },
       );
+      input.onModelProgress?.({
+        modelId: input.model.id,
+        status: "ready",
+        percentage: 100,
+        message: "Model ready.",
+        backend: input.backend,
+      });
       log.info("Real model inference complete.");
       return out;
     } catch (err) {
       if (err instanceof CancelledError) throw err;
       const message = err instanceof Error ? err.message : String(err);
-      log.warn(`Real model failed; falling back to mock. (${message})`);
+      log.error(`Real model failed: ${message}`);
+      input.onModelProgress?.({
+        modelId: input.model.id,
+        status: "failed",
+        percentage: null,
+        message: "Model failed to load.",
+        backend: input.backend,
+        error: message,
+      });
+      warnings.push(
+        `The real AI model could not run on this device (${message}). A simulated preview is shown instead.`,
+      );
       return null;
     }
   }
@@ -241,7 +312,7 @@ async function runBackgroundRemoval(
   tracker.advanceTo("normalize", "Normalizing image tensor…");
   throwIfAborted(input.signal);
   tracker.advanceTo("segment", "Running segmentation model…");
-  let result = await maybeRealInference(input, working, log);
+  let result = await maybeRealInference(input, working, log, warnings);
   if (!result) {
     result = mockBackgroundRemoval(working, input.signal);
     warnings.push(
@@ -266,7 +337,7 @@ async function runEnhanceOrDenoise(
   tracker.advanceTo("tensor", "Preparing tensor…");
   throwIfAborted(input.signal);
   tracker.advanceTo("run", "Running local AI model…");
-  let result = await maybeRealInference(input, working, log);
+  let result = await maybeRealInference(input, working, log, warnings);
   if (!result) {
     result =
       input.model.task === "denoise"
@@ -297,7 +368,7 @@ async function runSuperResolution(
     tracker.advanceTo("memory", "Checking memory limits…");
     tracker.advanceTo("tile", "Preparing model…");
     tracker.advanceTo("process-tiles", "Running super-resolution model…");
-    const real = await maybeRealInference(input, working, log);
+    const real = await maybeRealInference(input, working, log, warnings);
     if (real) {
       tracker.advanceTo("merge", "Finalizing…");
       tracker.advanceTo("seams", "Blending…");
@@ -318,7 +389,9 @@ async function runSuperResolution(
   tracker.advanceTo("process-tiles", "Processing tiles…");
   const placements: { tile: typeof plan.tiles[number]; data: ImageData; scale: number }[] = [];
   const tileStart = performance.now();
-  const realPossible = !input.useMock;
+  // The transformers SR path is whole-image (handled above); only raw ONNX SR
+  // tiles. So per-tile real inference is limited to the ONNX engine.
+  const realPossible = !input.useMock && input.engine === "onnx";
   for (let i = 0; i < plan.tiles.length; i += 1) {
     throwIfAborted(input.signal);
     const tile = plan.tiles[i]!;
@@ -329,6 +402,7 @@ async function runSuperResolution(
         { ...input, main: { ...input.main, imageData: tileData } },
         tileData,
         log,
+        warnings,
       );
     }
     if (!processed) {
@@ -379,7 +453,7 @@ async function runRestoreOldPhoto(
   tracker.advanceTo("tensor", "Preparing restoration tensor…");
   throwIfAborted(input.signal);
   tracker.advanceTo("run", "Running restoration model…");
-  let result = await maybeRealInference(input, working, log);
+  let result = await maybeRealInference(input, working, log, warnings);
   if (!result) {
     result = mockRestoreOldPhoto(working, input.intent.strength, input.signal);
     warnings.push(
@@ -415,7 +489,7 @@ async function runReferenceGuided(
   throwIfAborted(input.signal);
   tracker.advanceTo("run", "Running guided restoration…");
 
-  let result = await maybeRealInference(input, working, log);
+  let result = await maybeRealInference(input, working, log, warnings);
   if (!result) {
     // Mock: apply old-photo enhancement; do NOT perform identity transfer.
     result = mockRestoreOldPhoto(working, input.intent.strength, input.signal);

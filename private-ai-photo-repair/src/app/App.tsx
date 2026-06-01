@@ -158,10 +158,17 @@ export function App(): JSX.Element {
 
       <ModelManager
         cachedModels={c.cachedModels}
+        transformersReady={c.transformersReady}
         settings={c.settings}
-        onDelete={(id) => void c.deleteModel(id)}
-        onRedownload={(m) => void c.redownloadModel(m)}
-        onRefresh={() => void c.refreshCachedModels()}
+        modelLoadProgress={c.modelLoadProgress}
+        busy={c.isBusy}
+        onDownload={(m) => void (m.transformersModelId ? c.prefetchModel(m) : c.redownloadModel(m))}
+        onCancelDownload={c.cancelPrefetch}
+        onDelete={(m) => void c.deleteCachedModel(m)}
+        onRefresh={() => {
+          void c.refreshCachedModels();
+          void c.refreshTransformersReady();
+        }}
         onDeleteAll={() => void c.deleteAllModels()}
         onToggleSaver={(v) => void c.setStorageSaver(v)}
         onSetSaverDays={(d) => void c.setStorageSaverDays(d)}

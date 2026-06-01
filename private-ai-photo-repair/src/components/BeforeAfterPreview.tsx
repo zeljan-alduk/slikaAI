@@ -79,6 +79,13 @@ export function BeforeAfterPreview({ beforeAsset, result }: BeforeAfterPreviewPr
           {t("compare.mockWarn")}
         </p>
       )}
+      {result.warnings
+        .filter((w) => !/mock mode/i.test(w))
+        .map((w) => (
+          <p key={w} className="muted" style={{ color: "var(--warn)", marginTop: 6 }}>
+            ⚠ {w}
+          </p>
+        ))}
 
       <div className="kv-grid" style={{ marginTop: 10 }}>
         <div className="kv">

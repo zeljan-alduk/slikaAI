@@ -743,6 +743,17 @@ th {
   margin: 0 -4px;
 }
 
+.model-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+}
+
 /* ---------- Error banner ---------- */
 .error-banner {
   background: var(--danger-soft);
