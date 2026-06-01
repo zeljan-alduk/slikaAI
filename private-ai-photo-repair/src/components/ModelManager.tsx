@@ -31,14 +31,17 @@ export function ModelManager({
   const totalBytes = cachedModels.reduce((sum, c) => sum + c.sizeBytes, 0);
 
   return (
-    <section className="card">
-      <div className="row spread">
-        <h2>{t("manager.title")}</h2>
+    <details className="card collapsible">
+      <summary>
+        <span className="summary-title">{t("manager.title")}</span>
+        <span className="badge">{cachedModels.length} · {formatBytes(totalBytes)}</span>
+      </summary>
+
+      <div className="row" style={{ marginBottom: 8 }}>
         <button className="small ghost" onClick={onRefresh} disabled={disabled}>
           {t("manager.checkCache")}
         </button>
       </div>
-      <p className="muted">{t("manager.totalUsed", { size: formatBytes(totalBytes) })}</p>
 
       <div className="table-scroll" style={{ marginTop: 8 }}>
         <table>
@@ -135,6 +138,6 @@ export function ModelManager({
           {t("manager.deleteAll")}
         </button>
       </div>
-    </section>
+    </details>
   );
 }
