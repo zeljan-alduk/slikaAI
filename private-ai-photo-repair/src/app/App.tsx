@@ -30,7 +30,13 @@ export function App(): JSX.Element {
       : null;
 
   const engine = c.plan?.engine ?? null;
-  const taskRecognised = !!c.intent && c.intent.task !== "unknown" && !!c.selection?.model;
+  const selectedModel = c.selection?.model ?? null;
+  const taskRecognised = !!c.intent && c.intent.task !== "unknown" && !!selectedModel;
+  // A model is "ready" if cached as ONNX (IndexedDB) OR present in the
+  // Transformers.js browser cache.
+  const selectedReady =
+    c.selectedModelCached ||
+    (!!selectedModel?.transformersModelId && c.transformersReady.has(selectedModel.id));
   // Only raw-ONNX models must be pre-downloaded; Transformers.js fetches on use.
   const needsDownload = !!c.plan && engine === "onnx" && !c.selectedModelCached;
   const canStart =
@@ -42,16 +48,16 @@ export function App(): JSX.Element {
     if (c.tier === "unsupported") return t("process.hint.unsupported");
     if (needsDownload) return t("process.hint.download");
     if (c.plan?.useMock) return t("process.hint.readyMock");
-    if (engine === "transformers") return t("process.hint.readyFirstUse");
+    if (engine === "transformers" && !selectedReady) return t("process.hint.readyFirstUse");
     return t("process.hint.ready");
   })();
 
-  // Gentle warning when a required real model isn't downloaded yet.
+  // Gentle warning only when a required real model isn't on the device yet.
   const modelWarning = (() => {
-    if (!c.plan || !c.selection?.model || !taskRecognised) return null;
+    if (!c.plan || !selectedModel || !taskRecognised) return null;
     if (engine === "onnx" && !c.selectedModelCached) return t("process.modelWarnOnnx");
-    if (engine === "transformers" && !c.result && c.phase !== "processing") {
-      return t("process.modelWarn", { size: `${c.selection.model.estimatedSizeMb} MB` });
+    if (engine === "transformers" && !selectedReady && !c.result && c.phase !== "processing") {
+      return t("process.modelWarn", { size: `${selectedModel.estimatedSizeMb} MB` });
     }
     return null;
   })();
@@ -121,9 +127,9 @@ export function App(): JSX.Element {
       />
 
       <ModelRequirementCard
-        model={c.selection?.model ?? null}
+        model={selectedModel}
         plan={c.plan}
-        cached={c.selectedModelCached}
+        cached={selectedReady}
         freeStorageBytes={freeStorageBytes}
         onDownload={() => void c.downloadModel()}
         disabled={c.isBusy}
@@ -181,8 +187,8 @@ export function App(): JSX.Element {
         backend={c.backend}
         mainImage={c.mainImage}
         referenceCount={c.referenceImages.length}
-        selectedModel={c.selection?.model ?? null}
-        selectedModelCached={c.selectedModelCached}
+        selectedModel={selectedModel}
+        selectedModelCached={selectedReady}
         cachedModels={c.cachedModels}
         downloadProgress={c.downloadProgress}
         modelLoadProgress={c.modelLoadProgress}
