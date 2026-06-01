@@ -1,5 +1,10 @@
 import type { InferenceBackend } from "../core/capabilities/types";
-import type { ModelRegistryEntry, RetouchTask, InferenceEngine } from "../core/models/types";
+import type {
+  ModelRegistryEntry,
+  RetouchTask,
+  InferenceEngine,
+  ModelLoadProgress,
+} from "../core/models/types";
 import type { RetouchIntent } from "../core/prompt/promptTypes";
 import type {
   UserImageAssetTransfer,
@@ -31,7 +36,30 @@ export interface CancelMessage {
   taskId: string;
 }
 
-export type WorkerInboundMessage = StartInferenceMessage | CancelMessage;
+export interface PrefetchModelMessage {
+  type: "prefetch-model";
+  payload: {
+    taskId: string;
+    model: ModelRegistryEntry;
+    backend: InferenceBackend;
+  };
+}
+
+export type WorkerInboundMessage =
+  | StartInferenceMessage
+  | CancelMessage
+  | PrefetchModelMessage;
+
+export interface ModelLoadMessage {
+  type: "model-load";
+  taskId: string;
+  payload: ModelLoadProgress;
+}
+
+export interface PrefetchDoneMessage {
+  type: "prefetch-done";
+  taskId: string;
+}
 
 export interface ProcessingProgressMessage {
   type: "processing-progress";
@@ -85,4 +113,6 @@ export type WorkerOutboundMessage =
   | LogMessage
   | CompletedMessage
   | ErrorMessage
-  | CancelledMessage;
+  | CancelledMessage
+  | ModelLoadMessage
+  | PrefetchDoneMessage;

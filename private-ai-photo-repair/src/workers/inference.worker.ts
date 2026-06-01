@@ -10,6 +10,8 @@ import type {
 import { imageDataFromBitmap } from "../core/image/canvasUtils";
 import { runPipeline } from "../core/inference/ImageInferencePipeline";
 import { CancelledError } from "../core/inference/MockPipelines";
+import { preloadTransformersTask } from "../core/inference/TransformersPipeline";
+import { formatBytes } from "../core/progress/formatters";
 
 const ctx = self as unknown as DedicatedWorkerGlobalScope;
 
@@ -28,8 +30,88 @@ ctx.addEventListener("message", (event: MessageEvent<WorkerInboundMessage>) => {
   }
   if (data.type === "start-inference") {
     void handleStart(data.payload);
+    return;
+  }
+  if (data.type === "prefetch-model") {
+    void handlePrefetch(data.payload);
   }
 });
+
+async function handlePrefetch(
+  payload: import("./workerMessages").PrefetchModelMessage["payload"],
+): Promise<void> {
+  const { taskId, model, backend } = payload;
+  const device = backend === "webgpu" ? "webgpu" : "wasm";
+  const files = new Map<string, { loaded: number; total: number }>();
+  let lastEmit = 0;
+  const report = (force: boolean): void => {
+    const now = Date.now();
+    if (!force && now - lastEmit < 120) return;
+    lastEmit = now;
+    let loaded = 0;
+    let total = 0;
+    for (const v of files.values()) {
+      loaded += v.loaded;
+      total += v.total;
+    }
+    const percentage = total > 0 ? Math.min(100, Math.round((loaded / total) * 100)) : null;
+    post({
+      type: "model-load",
+      taskId,
+      payload: {
+        modelId: model.id,
+        status: "loading-model-file",
+        percentage,
+        message:
+          total > 0
+            ? `Downloading model… ${formatBytes(loaded)} / ${formatBytes(total)}`
+            : "Loading model…",
+        backend: device,
+      },
+    });
+  };
+  try {
+    if (!model.transformersModelId) {
+      throw new Error("This model has no Transformers.js id to prefetch.");
+    }
+    await preloadTransformersTask(model.task, model.transformersModelId, {
+      device,
+      progressCallback: (d) => {
+        if (!d.file) return;
+        if (d.status === "initiate") {
+          files.set(d.file, { loaded: 0, total: d.total ?? 0 });
+          report(true);
+        } else if (d.status === "progress" || d.status === "download") {
+          const prev = files.get(d.file);
+          files.set(d.file, {
+            loaded: d.loaded ?? prev?.loaded ?? 0,
+            total: d.total ?? prev?.total ?? 0,
+          });
+          report(false);
+        } else if (d.status === "done") {
+          const prev = files.get(d.file);
+          const total = d.total ?? prev?.total ?? 0;
+          files.set(d.file, { loaded: total, total });
+          report(true);
+        }
+      },
+    });
+    post({
+      type: "model-load",
+      taskId,
+      payload: {
+        modelId: model.id,
+        status: "ready",
+        percentage: 100,
+        message: "Model ready.",
+        backend: device,
+      },
+    });
+    post({ type: "prefetch-done", taskId });
+  } catch (err) {
+    post({ type: "error", taskId, error: err instanceof Error ? err.message : String(err) });
+  }
+}
 
 async function handleStart(
   payload: import("./workerMessages").StartInferenceMessage["payload"],
@@ -75,6 +157,7 @@ async function handleStart(
         useMock: payload.useMock,
         maxWorkingSize: payload.maxWorkingSize,
         signal: controller.signal,
+        onModelProgress: (p) => post({ type: "model-load", taskId, payload: p }),
       },
       {
         onProgress: (p) => post({ type: "processing-progress", taskId, payload: p }),

@@ -1,5 +1,9 @@
 import type { InferenceBackend } from "../core/capabilities/types";
-import type { ModelRegistryEntry, InferenceEngine } from "../core/models/types";
+import type {
+  ModelRegistryEntry,
+  InferenceEngine,
+  ModelLoadProgress,
+} from "../core/models/types";
 import type { RetouchIntent } from "../core/prompt/promptTypes";
 import type { UserImageAsset, ReferenceImageAsset } from "../core/image/types";
 import type {
@@ -21,6 +25,7 @@ export interface RunInferenceCallbacks {
   onProgress: (p: ProcessingProgress) => void;
   onTileProgress: (p: TileProgress) => void;
   onLog: (e: PipelineLogEntry) => void;
+  onModelLoad: (p: ModelLoadProgress) => void;
 }
 
 export interface RunInferenceHandle {
@@ -125,6 +130,9 @@ export function runInferenceInWorker(
             case "log":
               cb.onLog(msg.payload);
               break;
+            case "model-load":
+              cb.onModelLoad(msg.payload);
+              break;
             case "completed": {
               const p = msg.payload;
               const outputObjectUrl = URL.createObjectURL(p.outputBlob);
@@ -200,6 +208,51 @@ const resultImageData = new Map<string, ImageData>();
 
 function attachImageData(taskId: string, data: ImageData): void {
   resultImageData.set(taskId, data);
+}
+
+export interface PrefetchHandle {
+  done: Promise<void>;
+  cancel: () => void;
+}
+
+/**
+ * Pre-download a Transformers.js model in a worker, reporting real download
+ * progress. Resolves when the model is loaded and cached by the browser.
+ */
+export function prefetchModelInWorker(
+  model: ModelRegistryEntry,
+  backend: InferenceBackend,
+  onModelLoad: (p: ModelLoadProgress) => void,
+): PrefetchHandle {
+  const worker = new Worker(new URL("./inference.worker.ts", import.meta.url), {
+    type: "module",
+  });
+  const taskId = `prefetch_${model.id}_${Date.now().toString(36)}`;
+
+  const done = new Promise<void>((resolve, reject) => {
+    worker.onmessage = (event: MessageEvent<WorkerOutboundMessage>) => {
+      const msg = event.data;
+      if (msg.type === "model-load") {
+        onModelLoad(msg.payload);
+      } else if (msg.type === "prefetch-done") {
+        resolve();
+        worker.terminate();
+      } else if (msg.type === "error") {
+        reject(new Error(msg.error));
+        worker.terminate();
+      }
+    };
+    worker.onerror = (event) => {
+      reject(new Error(event.message || "Prefetch worker crashed."));
+      worker.terminate();
+    };
+    worker.postMessage({ type: "prefetch-model", payload: { taskId, model, backend } });
+  });
+
+  return {
+    done,
+    cancel: () => worker.terminate(),
+  };
 }
 
 export function getResultImageData(taskId: string): ImageData | null {

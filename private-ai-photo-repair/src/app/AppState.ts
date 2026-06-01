@@ -5,7 +5,6 @@ import type {
   CachedModelInfo,
   DownloadProgress,
   ModelLoadProgress,
-  ModelLoadStatus,
   AppSettings,
 } from "../core/models/types";
 import { DEFAULT_SETTINGS } from "../core/models/types";
@@ -30,6 +29,10 @@ import { selectModelForTask, type ModelSelection } from "../core/models/modelSel
 import { planPipeline, type PipelinePlan } from "../core/inference/pipelineFactory";
 import { MODEL_REGISTRY } from "../core/models/modelRegistry";
 import { modelCache, DownloadCancelledError, runStorageSaver } from "../core/models/modelCache";
+import {
+  getCachedTransformersModelIds,
+  deleteTransformersModel,
+} from "../core/models/transformersCache";
 import { getSettings, saveSettings } from "../core/models/modelStorage";
 import { createLogEntry } from "../core/diagnostics/logger";
 import {
@@ -39,10 +42,12 @@ import {
 } from "../core/image/imageLoader";
 import {
   runInferenceInWorker,
+  prefetchModelInWorker,
   ProcessingCancelledError,
   getResultImageData,
   clearResultImageData,
   type RunInferenceHandle,
+  type PrefetchHandle,
 } from "../workers/workerClient";
 import {
   exportImage,
@@ -89,15 +94,6 @@ function isMockForced(): boolean {
   return false;
 }
 
-const LOAD_PHASES: { status: ModelLoadStatus; percentage: number; message: string }[] = [
-  { status: "loading-model-file", percentage: 15, message: "Loading model file from local storage…" },
-  { status: "initializing-runtime", percentage: 30, message: "Initializing ONNX Runtime…" },
-  { status: "selecting-backend", percentage: 45, message: "Selecting backend…" },
-  { status: "creating-session", percentage: 70, message: "Creating inference session…" },
-  { status: "warming-up", percentage: 90, message: "Warming up model…" },
-  { status: "ready", percentage: 100, message: "Model ready." },
-];
-
 export interface AppController {
   // capabilities
   capabilities: DeviceCapabilities | null;
@@ -118,6 +114,7 @@ export interface AppController {
   plan: PipelinePlan | null;
   selectedModelCached: boolean;
   cachedModels: CachedModelInfo[];
+  transformersReady: Set<string>;
   settings: AppSettings;
 
   // startup model setup
@@ -153,6 +150,10 @@ export interface AppController {
   startProcessing: () => Promise<void>;
   cancelProcessing: () => void;
   refreshCachedModels: () => Promise<void>;
+  refreshTransformersReady: () => Promise<void>;
+  prefetchModel: (model: ModelRegistryEntry) => Promise<void>;
+  cancelPrefetch: () => void;
+  deleteCachedModel: (model: ModelRegistryEntry) => Promise<void>;
   deleteModel: (modelId: string) => Promise<void>;
   redownloadModel: (model: ModelRegistryEntry) => Promise<void>;
   deleteAllModels: () => Promise<void>;
@@ -193,9 +194,12 @@ export function useAppController(): AppController {
   const [result, setResult] = useState<InferenceResult | null>(null);
   const [phase, setPhase] = useState<AppPhase>("detecting");
   const [error, setError] = useState<string | null>(null);
+  // Model ids whose Transformers.js files are present in the browser cache.
+  const [transformersReady, setTransformersReady] = useState<Set<string>>(new Set());
 
   const downloadAbortRef = useRef<AbortController | null>(null);
   const processingHandleRef = useRef<RunInferenceHandle | null>(null);
+  const prefetchHandleRef = useRef<PrefetchHandle | null>(null);
   const resultUrlRef = useRef<string | null>(null);
 
   const log = useCallback((entry: PipelineLogEntry) => {
@@ -276,6 +280,7 @@ export function useAppController(): AppController {
 
         const cached = await modelCache.listCachedModels().catch(() => []);
         if (!cancelled) setCachedModels(cached);
+        await refreshTransformersReady();
         setPhase("ready");
       } catch (err) {
         if (cancelled) return;
@@ -429,22 +434,71 @@ export function useAppController(): AppController {
     downloadAbortRef.current?.abort();
   }, []);
 
-  const simulateModelLoad = useCallback(
-    async (model: ModelRegistryEntry, runBackend: InferenceBackend) => {
-      setPhase("loading-model");
-      for (const phaseStep of LOAD_PHASES) {
+  const refreshTransformersReady = useCallback(async () => {
+    const tfIds = MODEL_REGISTRY.map((m) => m.transformersModelId).filter(
+      (v): v is string => !!v,
+    );
+    const present = await getCachedTransformersModelIds(tfIds).catch(() => new Set<string>());
+    const readyModelIds = new Set(
+      MODEL_REGISTRY.filter(
+        (m) => m.transformersModelId && present.has(m.transformersModelId),
+      ).map((m) => m.id),
+    );
+    setTransformersReady(readyModelIds);
+  }, []);
+
+  // Pre-download a model (Transformers.js prefetch or ONNX cache) with visible
+  // progress, so the user can confirm a model is actually on the device.
+  const prefetchModel = useCallback(
+    async (model: ModelRegistryEntry) => {
+      setError(null);
+      if (model.transformersModelId && backend) {
+        setPhase("downloading");
         setModelLoadProgress({
           modelId: model.id,
-          status: phaseStep.status,
-          percentage: phaseStep.percentage,
-          message: phaseStep.message,
-          backend: runBackend,
+          status: "loading-model-file",
+          percentage: null,
+          message: "Preparing model…",
+          backend,
         });
-        logMessage("debug", "model-loader", phaseStep.message);
-        await new Promise((resolve) => setTimeout(resolve, 120));
+        const handle = prefetchModelInWorker(model, backend, setModelLoadProgress);
+        prefetchHandleRef.current = handle;
+        try {
+          await handle.done;
+          logMessage("info", "model-loader", `Model "${model.name}" downloaded and cached.`);
+          await refreshTransformersReady();
+        } catch (err) {
+          const message = err instanceof Error ? err.message : "Model download failed.";
+          setError(message);
+          logMessage("error", "model-loader", message);
+        } finally {
+          prefetchHandleRef.current = null;
+          setModelLoadProgress(null);
+          setPhase("ready");
+        }
       }
+      // ONNX models keep using the existing cache-download action in the manager.
     },
-    [logMessage],
+    [backend, logMessage, refreshTransformersReady],
+  );
+
+  const cancelPrefetch = useCallback(() => {
+    prefetchHandleRef.current?.cancel();
+    downloadAbortRef.current?.abort();
+  }, []);
+
+  const deleteCachedModel = useCallback(
+    async (model: ModelRegistryEntry) => {
+      if (model.transformersModelId) {
+        await deleteTransformersModel(model.transformersModelId);
+        await refreshTransformersReady();
+      } else {
+        await modelCache.deleteModel(model.id);
+        await refreshCachedModels();
+      }
+      logMessage("info", "model-cache", `Deleted model "${model.name}".`);
+    },
+    [refreshTransformersReady, refreshCachedModels, logMessage],
   );
 
   const startProcessing = useCallback(async () => {
@@ -464,8 +518,8 @@ export function useAppController(): AppController {
     setError(null);
     setResult(null);
     setTileProgress(null);
-
-    await simulateModelLoad(model, plan.backend);
+    // Real model-load/download progress is driven by the worker (if any).
+    setModelLoadProgress(null);
     if (!plan.useMock) {
       await modelCache.markModelUsed(model.id).catch(() => undefined);
     }
@@ -490,6 +544,7 @@ export function useAppController(): AppController {
         onProgress: setProcessingProgress,
         onTileProgress: setTileProgress,
         onLog: log,
+        onModelLoad: setModelLoadProgress,
       },
     );
     processingHandleRef.current = handle;
@@ -499,9 +554,12 @@ export function useAppController(): AppController {
       if (resultUrlRef.current) URL.revokeObjectURL(resultUrlRef.current);
       resultUrlRef.current = inferenceResult.outputObjectUrl;
       setResult(inferenceResult);
+      setModelLoadProgress(null);
       setPhase("done");
       await refreshCachedModels();
+      await refreshTransformersReady();
     } catch (err) {
+      setModelLoadProgress(null);
       if (err instanceof ProcessingCancelledError) {
         logMessage("warn", "inference-worker", "Processing cancelled.");
         setPhase("ready");
@@ -523,10 +581,10 @@ export function useAppController(): AppController {
     tier,
     referenceImages,
     maxWorkingSize,
-    simulateModelLoad,
     log,
     logMessage,
     refreshCachedModels,
+    refreshTransformersReady,
   ]);
 
   const cancelProcessing = useCallback(() => {
@@ -724,6 +782,7 @@ export function useAppController(): AppController {
     plan,
     selectedModelCached,
     cachedModels,
+    transformersReady,
     settings,
     eligibleStartupModels,
     showModelSetup,
@@ -749,6 +808,10 @@ export function useAppController(): AppController {
     startProcessing,
     cancelProcessing,
     refreshCachedModels,
+    refreshTransformersReady,
+    prefetchModel,
+    cancelPrefetch,
+    deleteCachedModel,
     deleteModel,
     redownloadModel,
     deleteAllModels,

@@ -182,3 +182,20 @@ export async function runTransformersTask(
 }
 
 export { CancelledError };
+
+/**
+ * Pre-download and initialise the model for a task without running inference.
+ * Used by the Model Manager so the user can explicitly fetch a model and see
+ * progress. Subsequent runs reuse the browser-cached files.
+ */
+export async function preloadTransformersTask(
+  task: RetouchTask,
+  modelId: string,
+  options: TransformersRunOptions,
+): Promise<void> {
+  if (task === "background-removal") {
+    await loadMatting(modelId, options.device, options.progressCallback);
+  } else {
+    await loadImageToImage(modelId, options.device, options.progressCallback);
+  }
+}

@@ -1,13 +1,23 @@
-import type { ModelRegistryEntry, CachedModelInfo, AppSettings } from "../core/models/types";
+import type {
+  ModelRegistryEntry,
+  CachedModelInfo,
+  AppSettings,
+  ModelLoadProgress,
+} from "../core/models/types";
 import { MODEL_REGISTRY } from "../core/models/modelRegistry";
-import { formatBytes, formatTimestamp } from "../core/progress/formatters";
+import { formatBytes } from "../core/progress/formatters";
+import { ProgressBar } from "./ProgressBar";
 import { useI18n } from "../i18n/i18n";
 
 interface ModelManagerProps {
   cachedModels: CachedModelInfo[];
+  transformersReady: Set<string>;
   settings: AppSettings;
-  onDelete: (modelId: string) => void;
-  onRedownload: (model: ModelRegistryEntry) => void;
+  modelLoadProgress: ModelLoadProgress | null;
+  busy: boolean;
+  onDownload: (model: ModelRegistryEntry) => void;
+  onCancelDownload: () => void;
+  onDelete: (model: ModelRegistryEntry) => void;
   onRefresh: () => void;
   onDeleteAll: () => void;
   onToggleSaver: (enabled: boolean) => void;
@@ -17,9 +27,13 @@ interface ModelManagerProps {
 
 export function ModelManager({
   cachedModels,
+  transformersReady,
   settings,
+  modelLoadProgress,
+  busy,
+  onDownload,
+  onCancelDownload,
   onDelete,
-  onRedownload,
   onRefresh,
   onDeleteAll,
   onToggleSaver,
@@ -27,89 +41,94 @@ export function ModelManager({
   disabled,
 }: ModelManagerProps): JSX.Element {
   const { t } = useI18n();
-  const cachedById = new Map(cachedModels.map((c) => [c.modelId, c]));
-  const totalBytes = cachedModels.reduce((sum, c) => sum + c.sizeBytes, 0);
+  const onnxCached = new Map(cachedModels.map((c) => [c.modelId, c]));
+
+  const isReady = (m: ModelRegistryEntry): boolean =>
+    transformersReady.has(m.id) || onnxCached.has(m.id);
+  const isReal = (m: ModelRegistryEntry): boolean =>
+    !!m.transformersModelId || !!m.modelUrl;
+
+  const readyCount = MODEL_REGISTRY.filter(isReady).length;
+  const downloading =
+    !!modelLoadProgress && modelLoadProgress.status !== "ready" && modelLoadProgress.status !== "failed";
 
   return (
     <details className="card collapsible">
       <summary>
         <span className="summary-title">{t("manager.title")}</span>
-        <span className="badge">{cachedModels.length} · {formatBytes(totalBytes)}</span>
+        <span className="badge">{readyCount}/{MODEL_REGISTRY.length}</span>
       </summary>
 
-      <div className="row" style={{ marginBottom: 8 }}>
+      <div className="row" style={{ marginBottom: 10 }}>
         <button className="small ghost" onClick={onRefresh} disabled={disabled}>
           {t("manager.checkCache")}
         </button>
       </div>
 
-      <div className="table-scroll" style={{ marginTop: 8 }}>
-        <table>
-          <thead>
-            <tr>
-              <th>{t("manager.col.model")}</th>
-              <th>{t("manager.col.version")}</th>
-              <th>{t("manager.col.size")}</th>
-              <th>{t("manager.col.status")}</th>
-              <th>{t("manager.col.lastUsed")}</th>
-              <th>{t("manager.col.actions")}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {MODEL_REGISTRY.map((model) => {
-              const cached = cachedById.get(model.id);
-              const status = cached
-                ? t("manager.status.cached")
-                : model.transformersModelId
-                  ? t("manager.status.real")
-                  : model.modelUrl
-                    ? t("manager.status.notDownloaded")
-                    : t("manager.status.mockOnly");
-              return (
-                <tr key={model.id}>
-                  <td>{model.name}</td>
-                  <td>{model.version}</td>
-                  <td>
-                    {cached ? formatBytes(cached.sizeBytes) : `~${model.estimatedSizeMb} MB`}
-                  </td>
-                  <td>
-                    <span
-                      className={`badge ${cached ? "success" : model.transformersModelId ? "accent" : model.modelUrl ? "" : "warn"}`}
-                    >
-                      {status}
-                    </span>
-                  </td>
-                  <td>{cached ? formatTimestamp(cached.lastUsedAt) : "—"}</td>
-                  <td>
-                    <div className="row">
-                      {cached && (
-                        <button
-                          className="small danger"
-                          onClick={() => onDelete(model.id)}
-                          disabled={disabled}
-                        >
-                          {t("manager.delete")}
-                        </button>
-                      )}
-                      {model.modelUrl && (
-                        <button
-                          className="small ghost"
-                          onClick={() => onRedownload(model)}
-                          disabled={disabled}
-                        >
-                          {cached ? t("manager.redownload") : t("manager.download")}
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+      {downloading && modelLoadProgress && (
+        <div style={{ marginBottom: 12 }}>
+          <ProgressBar percentage={modelLoadProgress.percentage} />
+          <div className="row spread" style={{ marginTop: 6 }}>
+            <span className="muted">{modelLoadProgress.message}</span>
+            <button className="small danger" onClick={onCancelDownload}>
+              {t("common.cancel")}
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {MODEL_REGISTRY.map((model) => {
+          const ready = isReady(model);
+          const real = isReal(model);
+          const cachedInfo = onnxCached.get(model.id);
+          const sizeLabel = cachedInfo
+            ? formatBytes(cachedInfo.sizeBytes)
+            : `~${model.estimatedSizeMb} MB`;
+          const statusLabel = ready
+            ? t("manager.status.cached")
+            : real
+              ? t("manager.status.notDownloaded")
+              : t("manager.status.mockOnly");
+          const statusClass = ready ? "success" : real ? "accent" : "warn";
+
+          return (
+            <div
+              key={model.id}
+              className="model-row"
+            >
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={{ fontWeight: 600 }}>{model.name}</div>
+                <div className="muted" style={{ fontSize: "0.76rem" }}>
+                  {sizeLabel} · <span className={`badge ${statusClass}`}>{statusLabel}</span>
+                </div>
+              </div>
+              <div className="row" style={{ flexWrap: "nowrap" }}>
+                {real && !ready && (
+                  <button
+                    className="small primary"
+                    onClick={() => onDownload(model)}
+                    disabled={disabled || busy}
+                  >
+                    {t("manager.download")}
+                  </button>
+                )}
+                {ready && (
+                  <button
+                    className="small danger"
+                    onClick={() => onDelete(model)}
+                    disabled={disabled || busy}
+                  >
+                    {t("manager.delete")}
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
       </div>
 
-      <div className="row spread" style={{ marginTop: 12 }}>
+      <div className="row spread" style={{ marginTop: 14 }}>
         <label className="row" style={{ gap: 6 }}>
           <input
             type="checkbox"
@@ -118,7 +137,7 @@ export function ModelManager({
             disabled={disabled}
             style={{ width: "auto" }}
           />
-          <span>
+          <span className="muted">
             {t("manager.saver")}{" "}
             <input
               type="text"
@@ -129,12 +148,16 @@ export function ModelManager({
                 if (Number.isFinite(n) && n > 0) onSetSaverDays(n);
               }}
               disabled={disabled || !settings.storageSaverEnabled}
-              style={{ width: 56, display: "inline-block", padding: "4px 6px", margin: "0 4px" }}
+              style={{ width: 52, display: "inline-block", padding: "4px 6px", margin: "0 4px" }}
             />{" "}
             {t("manager.saverDays")}
           </span>
         </label>
-        <button className="small danger" onClick={onDeleteAll} disabled={disabled || cachedModels.length === 0}>
+        <button
+          className="small danger"
+          onClick={onDeleteAll}
+          disabled={disabled || cachedModels.length === 0}
+        >
           {t("manager.deleteAll")}
         </button>
       </div>
