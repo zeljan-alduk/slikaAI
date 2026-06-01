@@ -60,6 +60,26 @@ jobs:
         with:
           path: private-ai-photo-repair/dist
 
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: private-ai-photo-repair/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Run end-to-end tests (mock pipeline)
+        run: npm run test:e2e
+
   deploy:
     # Deploy only from the default branch; PRs and other branches are CI-only.
     if: github.ref == 'refs/heads/main'

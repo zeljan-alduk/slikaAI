@@ -70,6 +70,25 @@ const MAX_LOGS = 500;
 const LARGE_IMAGE_BYTES = 12 * 1024 * 1024;
 let taskCounter = 0;
 
+/**
+ * Force the deterministic mock pipeline via `?engine=mock` or a stored flag.
+ * Used by e2e tests and as a manual "no downloads" override.
+ */
+function isMockForced(): boolean {
+  try {
+    if (typeof location !== "undefined") {
+      const param = new URLSearchParams(location.search).get("engine");
+      if (param === "mock") return true;
+    }
+    if (typeof localStorage !== "undefined" && localStorage.getItem("papr-force-mock") === "1") {
+      return true;
+    }
+  } catch {
+    /* ignore */
+  }
+  return false;
+}
+
 const LOAD_PHASES: { status: ModelLoadStatus; percentage: number; message: string }[] = [
   { status: "loading-model-file", percentage: 15, message: "Loading model file from local storage…" },
   { status: "initializing-runtime", percentage: 30, message: "Initializing ONNX Runtime…" },
@@ -201,7 +220,7 @@ export function useAppController(): AppController {
 
   const plan = useMemo<PipelinePlan | null>(() => {
     if (!selection?.model || !backend) return null;
-    return planPipeline(selection.model, backend);
+    return planPipeline(selection.model, backend, { forceMock: isMockForced() });
   }, [selection, backend]);
 
   const maxWorkingSize = useMemo(
