@@ -1,11 +1,14 @@
 import { useI18n } from "../i18n/i18n";
+import { ShieldIcon } from "./Icons";
 
 export function PrivacyExplainer(): JSX.Element {
   const { t } = useI18n();
   return (
     <details className="card privacy collapsible">
       <summary>
-        <span className="summary-title">🔒 {t("privacy.title")}</span>
+        <span className="summary-title" style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+          <ShieldIcon size={16} /> {t("privacy.title")}
+        </span>
       </summary>
       <p className="muted">{t("privacy.body")}</p>
       <ul>
