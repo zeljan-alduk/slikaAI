@@ -40,15 +40,15 @@ export function DeviceCapabilityCard({
       : t("common.unknown");
 
   return (
-    <section className="card">
-      <div className="row spread">
-        <h2>{t("device.title")}</h2>
+    <details className="card collapsible">
+      <summary>
+        <span className="summary-title">{t("device.title")}</span>
         <span className={`badge ${supported ? "success" : "warn"}`}>
-          {supported ? t("device.localSupported") : t("device.localNotSupported")}
+          {tierLabel(tier)} · {backendLabel(backend)}
         </span>
-      </div>
+      </summary>
 
-      <div className="kv-grid" style={{ marginTop: 10 }}>
+      <div className="kv-grid">
         <div className="kv">
           <span className="k">{t("device.tier")}</span>
           <span className="v">{tierLabel(tier)}</span>
@@ -105,6 +105,6 @@ export function DeviceCapabilityCard({
           {t("device.unsupportedWarn")}
         </p>
       )}
-    </section>
+    </details>
   );
 }

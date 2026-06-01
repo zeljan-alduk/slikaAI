@@ -11,28 +11,17 @@ interface SuggestedCommandChipsProps {
 }
 
 export function SuggestedCommandChips({ onSelect, disabled }: SuggestedCommandChipsProps): JSX.Element {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
+  // Show only the chip group for the chosen UI language.
+  const commands = lang === "hr" ? SUGGESTED_COMMANDS_HR : SUGGESTED_COMMANDS_EN;
+
   return (
     <section className="card">
-      <h2>{t("suggest.title")}</h2>
-      <h3 style={{ marginTop: 8 }}>{t("suggest.hr")}</h3>
+      <h3 style={{ marginBottom: 8 }}>{t("suggest.title")}</h3>
       <div className="chips">
-        {SUGGESTED_COMMANDS_HR.map((cmd) => (
+        {commands.map((cmd) => (
           <button
-            key={`hr-${cmd.label}`}
-            className="chip"
-            disabled={disabled}
-            onClick={() => onSelect(cmd)}
-          >
-            {cmd.label}
-          </button>
-        ))}
-      </div>
-      <h3 style={{ marginTop: 12 }}>{t("suggest.en")}</h3>
-      <div className="chips">
-        {SUGGESTED_COMMANDS_EN.map((cmd) => (
-          <button
-            key={`en-${cmd.label}`}
+            key={cmd.label}
             className="chip"
             disabled={disabled}
             onClick={() => onSelect(cmd)}
