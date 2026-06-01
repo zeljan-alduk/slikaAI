@@ -7,6 +7,7 @@ import { ReferenceImageUploader } from "../components/ReferenceImageUploader";
 import { PromptBox } from "../components/PromptBox";
 import { SuggestedCommandChips } from "../components/SuggestedCommandChips";
 import { ModelRequirementCard } from "../components/ModelRequirementCard";
+import { ModelSetupCard } from "../components/ModelSetupCard";
 import { DownloadProgressCard } from "../components/DownloadProgressCard";
 import { ModelLoadProgressCard } from "../components/ModelLoadProgressCard";
 import { ProcessingTimeline } from "../components/ProcessingTimeline";
@@ -54,6 +55,19 @@ export function App(): JSX.Element {
         maxWorkingSize={c.maxWorkingSize}
       />
 
+      {c.showModelSetup && (
+        <ModelSetupCard
+          models={c.eligibleStartupModels}
+          freeStorageBytes={freeStorageBytes}
+          downloading={c.startupDownloading}
+          progress={c.downloadProgress}
+          queue={c.startupQueue}
+          onDownload={(ids) => void c.startModelSetup(ids)}
+          onCancel={c.cancelModelSetup}
+          onDismiss={(dontAsk) => void c.dismissModelSetup(dontAsk)}
+        />
+      )}
+
       <ImageUploader
         asset={c.mainImage}
         onFile={(f) => void c.setMainImageFile(f)}
@@ -86,7 +100,9 @@ export function App(): JSX.Element {
         disabled={c.isBusy}
       />
 
-      <DownloadProgressCard progress={c.downloadProgress} onCancel={c.cancelDownload} />
+      {!c.startupDownloading && (
+        <DownloadProgressCard progress={c.downloadProgress} onCancel={c.cancelDownload} />
+      )}
       <ModelLoadProgressCard progress={c.modelLoadProgress} />
 
       <section className="card">

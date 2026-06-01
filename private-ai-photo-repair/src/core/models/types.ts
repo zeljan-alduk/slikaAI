@@ -108,9 +108,12 @@ export interface AppSettings {
   storageSaverEnabled: boolean;
   /** Models unused for this many days are eligible for auto-removal. */
   storageSaverMaxAgeDays: number;
+  /** Whether to offer the "set up AI models" prompt on startup. */
+  promptModelSetupOnStart: boolean;
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
   storageSaverEnabled: false,
   storageSaverMaxAgeDays: 30,
+  promptModelSetupOnStart: true,
 };

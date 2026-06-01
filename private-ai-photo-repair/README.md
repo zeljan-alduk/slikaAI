@@ -94,6 +94,16 @@ Requires Node 18+.
 - Each run updates `lastUsedAt`. The optional **storage saver** removes models
   unused for N days (default 30).
 
+### Startup model setup
+
+On startup, if any models have a **real URL configured** (via env vars) and are
+**not yet cached**, the app shows a **"Set up AI models"** card. It explains the
+purpose and size of each eligible model and lets you choose which to download.
+Downloads run **in the background** (the app stays usable), can be **cancelled**,
+and are stored locally for reuse. A **"Don't ask again on startup"** option
+persists in settings (IndexedDB). When no real model URLs are configured (the
+default / mock mode), there is nothing to download and the card is not shown.
+
 ### Why not `localStorage`?
 
 `localStorage` is synchronous, string-only, and capped at ~5 MB — it cannot hold
