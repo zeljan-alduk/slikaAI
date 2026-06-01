@@ -9,6 +9,11 @@ export interface PipelinePlan {
   reason: string;
 }
 
+export interface PlanOptions {
+  /** Force the deterministic mock pipeline (used by e2e tests and a manual override). */
+  forceMock?: boolean;
+}
+
 /**
  * Decide which engine a run uses (Transformers.js, raw ONNX, or mock) and which
  * backend label to report. Preference: real Transformers.js model → real ONNX
@@ -17,9 +22,19 @@ export interface PipelinePlan {
 export function planPipeline(
   model: ModelRegistryEntry,
   deviceBackend: InferenceBackend,
+  options: PlanOptions = {},
 ): PipelinePlan {
   const realBackendAvailable =
     deviceBackend === "webgpu" || deviceBackend === "wasm";
+
+  if (options.forceMock && model.mockAvailable && MOCK_MODE_ENABLED) {
+    return {
+      useMock: true,
+      engine: "mock",
+      backend: "mock",
+      reason: "Mock pipeline forced (test/override).",
+    };
+  }
 
   if (model.transformersModelId && realBackendAvailable) {
     return {

@@ -201,6 +201,25 @@ Notes:
 - These real models are **not exercised in this sandbox** (no WebGPU here);
   validate inference in a real browser.
 
+## End-to-end tests
+
+Playwright drives the real built app in a browser. To keep tests fast and
+deterministic (no WebGPU or network model downloads), they run the app in
+**mock mode** via `?engine=mock`, which forces the deterministic canvas-based
+pipelines. They cover: app load, prompt parsing, suggested chips, the full
+upload → Start → before/after → export flow (background removal + super-res),
+the theme toggle, and the HR/EN language switch.
+
+```bash
+npm run build           # tests serve the production build
+npx playwright install chromium
+npm run test:e2e
+```
+
+CI runs these on every PR (see `.github/workflows`). You can also force mock
+mode manually by visiting `?engine=mock` or setting
+`localStorage["papr-force-mock"] = "1"`.
+
 ## Theme & language
 
 - **Theme:** light / dark with a one-tap toggle in the header. Defaults to the
