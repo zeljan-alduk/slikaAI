@@ -38,8 +38,8 @@ export function ModelRequirementCard({
     );
   }
 
-  // Real model via Transformers.js — downloads on first use, cached by browser.
-  if (plan.engine === "transformers") {
+  // Real model via Transformers.js that isn't cached yet — downloads on first use.
+  if (plan.engine === "transformers" && !cached) {
     return (
       <section className="card">
         <div className="row spread">
