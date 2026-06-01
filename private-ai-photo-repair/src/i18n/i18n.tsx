@@ -54,6 +54,9 @@ const HR: Dict = {
   "device.secure": "Sigurni kontekst",
   "device.webgpuWarn":
     "⚠ WebGPU nije dostupan na ovom uređaju/pregledniku. Aplikacija će koristiti sporiju zamjenu.",
+  "device.webgpuToggle": "Koristi WebGPU (eksperimentalno)",
+  "device.webgpuToggleHint":
+    "Brže, ali na nekim preglednicima (Chrome/Opera) može srušiti karticu. Prema zadanome koristi se pouzdaniji WebAssembly (CPU). Uključi samo ako WebGPU radi stabilno kod tebe.",
   "device.unsupportedWarn":
     "⚠ Tvoj preglednik ne podržava potrebne lokalne API-je (Web Workers, WASM i IndexedDB/Cache Storage) za pokretanje AI modela.",
   "device.storageValue": "{free} slobodno od {total}",
@@ -256,6 +259,9 @@ const EN: Dict = {
   "device.secure": "Secure context",
   "device.webgpuWarn":
     "⚠ WebGPU is not available on this device/browser. The app will use a slower fallback.",
+  "device.webgpuToggle": "Use WebGPU (experimental)",
+  "device.webgpuToggleHint":
+    "Faster, but on some browsers (Chrome/Opera) it can crash the tab. The reliable WebAssembly (CPU) backend is used by default. Enable only if WebGPU is stable for you.",
   "device.unsupportedWarn":
     "⚠ Your browser does not support the required local APIs (Web Workers, WASM, and IndexedDB/Cache Storage) for running AI models.",
   "device.storageValue": "{free} free of {total}",

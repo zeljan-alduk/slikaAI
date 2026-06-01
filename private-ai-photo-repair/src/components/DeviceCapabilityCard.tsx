@@ -8,6 +8,9 @@ interface DeviceCapabilityCardProps {
   tier: DeviceTier | null;
   backend: InferenceBackend | null;
   maxWorkingSize: number;
+  preferWebGpu: boolean;
+  onPreferWebGpuChange: (enabled: boolean) => void;
+  disabled?: boolean;
 }
 
 export function DeviceCapabilityCard({
@@ -15,6 +18,9 @@ export function DeviceCapabilityCard({
   tier,
   backend,
   maxWorkingSize,
+  preferWebGpu,
+  onPreferWebGpuChange,
+  disabled,
 }: DeviceCapabilityCardProps): JSX.Element {
   const { t } = useI18n();
   const yesNo = (v: boolean): string => (v ? t("common.yes") : t("common.no"));
@@ -95,6 +101,24 @@ export function DeviceCapabilityCard({
         </div>
       </div>
 
+      {capabilities.webgpuSupported && supported && (
+        <div style={{ marginTop: 12 }}>
+          <label className="row" style={{ gap: 8, alignItems: "flex-start" }}>
+            <input
+              type="checkbox"
+              checked={preferWebGpu}
+              onChange={(e) => onPreferWebGpuChange(e.target.checked)}
+              disabled={disabled}
+              style={{ width: "auto", marginTop: 3 }}
+            />
+            <span className="muted">
+              <strong>{t("device.webgpuToggle")}</strong>
+              <br />
+              {t("device.webgpuToggleHint")}
+            </span>
+          </label>
+        </div>
+      )}
       {!capabilities.webgpuSupported && supported && (
         <p className="muted" style={{ marginTop: 10, color: "var(--warn)" }}>
           {t("device.webgpuWarn")}

@@ -118,10 +118,17 @@ export interface AppSettings {
   storageSaverMaxAgeDays: number;
   /** Whether to offer the "set up AI models" prompt on startup. */
   promptModelSetupOnStart: boolean;
+  /**
+   * Opt-in to the WebGPU backend. Off by default because the WebGPU execution
+   * path can crash some browsers (Chrome/Opera) on certain models; the reliable
+   * WebAssembly (CPU) backend is used unless this is explicitly enabled.
+   */
+  preferWebGpu: boolean;
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
   storageSaverEnabled: false,
   storageSaverMaxAgeDays: 30,
   promptModelSetupOnStart: true,
+  preferWebGpu: false,
 };

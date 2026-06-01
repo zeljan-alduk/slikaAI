@@ -160,6 +160,9 @@ export function App(): JSX.Element {
         tier={c.tier}
         backend={c.backend}
         maxWorkingSize={c.maxWorkingSize}
+        preferWebGpu={c.settings.preferWebGpu}
+        onPreferWebGpuChange={(v) => void c.setPreferWebGpu(v)}
+        disabled={c.isBusy}
       />
 
       <ModelManager
