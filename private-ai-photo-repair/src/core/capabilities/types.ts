@@ -28,10 +28,14 @@ export type InferenceBackend =
   | "mock"
   | "unsupported";
 
-/** Per-tier longest-side cap (in pixels) for the working image. */
+/**
+ * Per-tier longest-side cap (in pixels) for the working image. Kept conservative
+ * so that decoding, mock processing and neural inference stay within memory on
+ * phones and laptops (very large photos crash WebGPU/WASM otherwise).
+ */
 export const TIER_MAX_INPUT_SIZE: Record<DeviceTier, number> = {
-  low: 1024,
-  medium: 1536,
-  high: 4096,
-  unsupported: 768,
+  low: 768,
+  medium: 1152,
+  high: 1600,
+  unsupported: 640,
 };

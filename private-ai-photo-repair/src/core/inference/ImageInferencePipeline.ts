@@ -174,6 +174,9 @@ async function maybeRealInference(
   if (input.engine === "transformers" && input.model.transformersModelId) {
     try {
       log.info(`Loading real model "${input.model.transformersModelId}" (Transformers.js)…`);
+      // Throttle download logging so frequent progress callbacks don't flood the
+      // main thread with messages/re-renders (which caused UI jank).
+      const lastPct = new Map<string, number>();
       const out = await runTransformersTask(
         input.model.task,
         input.model.transformersModelId,
@@ -182,10 +185,18 @@ async function maybeRealInference(
           device: input.backend === "webgpu" ? "webgpu" : "wasm",
           signal: input.signal,
           progressCallback: (d) => {
-            if (d.status === "progress" && d.file) {
-              log.info(`Downloading ${d.file}: ${Math.round(d.progress ?? 0)}%`);
-            } else if (d.status === "ready") {
-              log.info("Model ready.");
+            if (d.status === "initiate" && d.file) {
+              lastPct.set(d.file, 0);
+              log.info(`Downloading ${d.file}…`);
+            } else if (d.status === "progress" && d.file) {
+              const pct = Math.round(d.progress ?? 0);
+              const prev = lastPct.get(d.file) ?? -100;
+              if (pct - prev >= 25) {
+                lastPct.set(d.file, pct);
+                log.info(`Downloading ${d.file}: ${pct}%`);
+              }
+            } else if (d.status === "done" && d.file) {
+              log.info(`Downloaded ${d.file}.`);
             }
           },
         },

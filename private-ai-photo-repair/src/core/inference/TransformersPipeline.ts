@@ -28,6 +28,9 @@ export interface TransformersRunOptions {
 // Largest input edge fed to the (memory-hungry) super-resolution / restoration
 // models. Keeps in-browser inference feasible across devices.
 const SR_INPUT_CAP = 512;
+// Background-removal matting runs at a reduced size; the mask is upscaled back
+// to the working image so the cutout keeps its resolution.
+const MATTING_INPUT_CAP = 1024;
 
 let tfPromise: Promise<TfModule> | null = null;
 
@@ -98,10 +101,13 @@ async function runMatting(
   const { tf, model, processor } = await loadMatting(id, device, progressCallback);
   throwIfAborted(signal);
 
+  // Run the matting model at a reduced size to bound memory, then upscale the
+  // mask back to the working image so the output keeps full resolution.
+  const small = resizeToMaxLongestSide(imageData, MATTING_INPUT_CAP).imageData;
   const source = new tf.RawImage(
-    new Uint8ClampedArray(imageData.data),
-    imageData.width,
-    imageData.height,
+    new Uint8ClampedArray(small.data),
+    small.width,
+    small.height,
     4,
   );
   const rgb = source.rgb();

@@ -36,6 +36,7 @@ interface DiagnosticsPanelProps {
 export function DiagnosticsPanel(props: DiagnosticsPanelProps): JSX.Element {
   const { t } = useI18n();
   const [copied, setCopied] = useState(false);
+  const [open, setOpen] = useState(false);
 
   const handleCopy = async (): Promise<void> => {
     const snapshot = buildDiagnostics({
@@ -57,8 +58,9 @@ export function DiagnosticsPanel(props: DiagnosticsPanelProps): JSX.Element {
 
   return (
     <section className="card">
-      <details>
+      <details onToggle={(e) => setOpen((e.target as HTMLDetailsElement).open)}>
         <summary>{t("diag.title")}</summary>
+        {open && (
         <div style={{ marginTop: 10 }}>
           <div className="row spread">
             <h3>{t("diag.title")}</h3>
@@ -165,6 +167,7 @@ export function DiagnosticsPanel(props: DiagnosticsPanelProps): JSX.Element {
           <h3 style={{ marginTop: 10 }}>Logs</h3>
           <TaskLogViewer logs={props.logs} />
         </div>
+        )}
       </details>
     </section>
   );
