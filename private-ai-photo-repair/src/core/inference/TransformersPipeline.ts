@@ -23,6 +23,8 @@ export interface TransformersRunOptions {
   device: TfDevice;
   progressCallback?: TfProgressCallback;
   signal?: AbortSignal;
+  /** Subject phrase to ground, used by the smart-crop (Florence-2) task. */
+  query?: string;
 }
 
 // Largest input edge fed to the (memory-hungry) super-resolution / restoration
@@ -84,6 +86,119 @@ async function loadImageToImage(id: string, device: TfDevice, progress?: TfProgr
     loaded.set(key, entry);
   }
   return entry;
+}
+
+// Florence-2 is a vision-language model: it loads as several ONNX sub-models
+// (vision encoder, text encoder/decoder, token embeddings). Quantized (q8)
+// weights keep it small enough to run on phones via WebAssembly.
+async function loadFlorence(id: string, device: TfDevice, progress?: TfProgressCallback): Promise<any> {
+  const key = `florence:${id}:${device}`;
+  let entry = loaded.get(key);
+  if (!entry) {
+    entry = (async () => {
+      const tf = await getTf();
+      const model = await (tf as any).Florence2ForConditionalGeneration.from_pretrained(id, {
+        device,
+        dtype: "q8",
+        progress_callback: progress as any,
+      });
+      const processor = await tf.AutoProcessor.from_pretrained(id, {
+        progress_callback: progress as any,
+      });
+      return { tf, model, processor };
+    })();
+    loaded.set(key, entry);
+  }
+  return entry;
+}
+
+function cropImageData(input: ImageData, x: number, y: number, w: number, h: number): ImageData {
+  const out = new ImageData(w, h);
+  for (let row = 0; row < h; row += 1) {
+    const srcStart = ((y + row) * input.width + x) * 4;
+    const dstStart = row * w * 4;
+    out.data.set(input.data.subarray(srcStart, srcStart + w * 4), dstStart);
+  }
+  return out;
+}
+
+/**
+ * Text-guided crop with Florence-2. Grounds the requested subject to bounding
+ * box(es), then crops the image tightly around their union (with a small
+ * margin). Throws if the subject cannot be located so the caller can fall back.
+ */
+async function runSmartCrop(
+  id: string,
+  imageData: ImageData,
+  options: TransformersRunOptions,
+): Promise<ImageData> {
+  const { device, progressCallback, signal } = options;
+  const query = (options.query ?? "").trim() || "the main subject";
+  const { tf, model, processor } = await loadFlorence(id, device, progressCallback);
+  throwIfAborted(signal);
+
+  const source = new tf.RawImage(
+    new Uint8ClampedArray(imageData.data),
+    imageData.width,
+    imageData.height,
+    4,
+  ).rgb();
+
+  // Phrase grounding: locate the named subject in the image.
+  const task = "<CAPTION_TO_PHRASE_GROUNDING>";
+  const inputs: any = await (processor as any)(source, task + query);
+  throwIfAborted(signal);
+
+  const generated: any = await model.generate({
+    ...inputs,
+    max_new_tokens: 256,
+    num_beams: 1,
+    do_sample: false,
+  });
+  throwIfAborted(signal);
+
+  const decoded: string = (processor as any).tokenizer.batch_decode(generated, {
+    skip_special_tokens: false,
+  })[0];
+  const parsed: any = (processor as any).post_process_generation(decoded, task, [
+    imageData.width,
+    imageData.height,
+  ]);
+
+  const bboxes: number[][] = parsed?.[task]?.bboxes ?? [];
+  if (bboxes.length === 0) {
+    throw new Error(`Florence-2 could not locate "${query}" in the image.`);
+  }
+
+  // Union of all matched boxes, expanded by a small margin and clamped.
+  let x1 = Infinity;
+  let y1 = Infinity;
+  let x2 = -Infinity;
+  let y2 = -Infinity;
+  for (const b of bboxes) {
+    if (b.length < 4) continue;
+    x1 = Math.min(x1, b[0]!);
+    y1 = Math.min(y1, b[1]!);
+    x2 = Math.max(x2, b[2]!);
+    y2 = Math.max(y2, b[3]!);
+  }
+  if (!Number.isFinite(x1) || !Number.isFinite(y1) || !Number.isFinite(x2) || !Number.isFinite(y2)) {
+    throw new Error(`Florence-2 returned no usable box for "${query}".`);
+  }
+  const mx = (x2 - x1) * 0.08;
+  const my = (y2 - y1) * 0.08;
+  x1 = Math.max(0, Math.floor(x1 - mx));
+  y1 = Math.max(0, Math.floor(y1 - my));
+  x2 = Math.min(imageData.width, Math.ceil(x2 + mx));
+  y2 = Math.min(imageData.height, Math.ceil(y2 + my));
+
+  const w = Math.max(1, x2 - x1);
+  const h = Math.max(1, y2 - y1);
+  if (w >= imageData.width && h >= imageData.height) {
+    // Box covers the whole frame — nothing meaningful to crop.
+    return imageData;
+  }
+  return cropImageData(imageData, x1, y1, w, h);
 }
 
 function rawToImageData(tf: TfModule, raw: any): ImageData {
@@ -168,6 +283,10 @@ export async function runTransformersTask(
     return runMatting(modelId, imageData, options);
   }
 
+  if (task === "smart-crop") {
+    return runSmartCrop(modelId, imageData, options);
+  }
+
   // All other supported real tasks use an image-to-image restoration backbone.
   const capped = resizeToMaxLongestSide(imageData, SR_INPUT_CAP).imageData;
   const output = await runImageToImage(modelId, capped, options);
@@ -195,6 +314,8 @@ export async function preloadTransformersTask(
 ): Promise<void> {
   if (task === "background-removal") {
     await loadMatting(modelId, options.device, options.progressCallback);
+  } else if (task === "smart-crop") {
+    await loadFlorence(modelId, options.device, options.progressCallback);
   } else {
     await loadImageToImage(modelId, options.device, options.progressCallback);
   }

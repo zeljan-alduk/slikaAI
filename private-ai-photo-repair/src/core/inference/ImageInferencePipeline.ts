@@ -24,10 +24,12 @@ import {
   mockBackgroundRemoval,
   mockUpscaleTile,
   mockRestoreOldPhoto,
+  mockSmartCrop,
   isGrayscale,
   throwIfAborted,
   CancelledError,
 } from "./MockPipelines";
+import { extractGroundingQuery } from "../prompt/parseRetouchPrompt";
 import { analyzeReference, selectBestReference } from "../image/referenceImages";
 import { OnnxImagePipeline } from "./OnnxImagePipeline";
 import { runTransformersTask } from "./TransformersPipeline";
@@ -104,6 +106,9 @@ export async function runPipeline(
         break;
       case "reference-guided-restore":
         result = await runReferenceGuided(input, tracker, log, warnings);
+        break;
+      case "smart-crop":
+        result = await runSmartCrop(input, tracker, log, warnings);
         break;
       default:
         throw new Error(`Unsupported task: ${task}`);
@@ -252,6 +257,10 @@ async function maybeRealInference(
           device: input.backend === "webgpu" ? "webgpu" : "wasm",
           signal: input.signal,
           progressCallback: makeTfProgress(input, log),
+          query:
+            input.model.task === "smart-crop"
+              ? extractGroundingQuery(input.intent.originalPrompt)
+              : undefined,
         },
       );
       input.onModelProgress?.({
@@ -322,6 +331,27 @@ async function runBackgroundRemoval(
   tracker.advanceTo("mask", "Generating alpha mask…");
   tracker.advanceTo("refine", "Refining mask edges…");
   tracker.advanceTo("composite", "Compositing transparent PNG…");
+  throwIfAborted(input.signal);
+  return result;
+}
+
+async function runSmartCrop(
+  input: PipelineRunInput,
+  tracker: ProgressTracker,
+  log: Logger,
+  warnings: string[],
+): Promise<ImageData> {
+  const working = prepareWorking(input, tracker, log, warnings, "decode", "resize");
+  tracker.advanceTo("ground", "Locating the subject…");
+  throwIfAborted(input.signal);
+  let result = await maybeRealInference(input, working, log, warnings);
+  if (!result) {
+    result = mockSmartCrop(working, input.signal);
+    warnings.push(
+      "This result was generated in mock mode. Connect a real model for text-guided cropping.",
+    );
+  }
+  tracker.advanceTo("crop", "Cropping to the subject…");
   throwIfAborted(input.signal);
   return result;
 }

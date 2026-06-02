@@ -15,6 +15,7 @@ const TASK_LABELS: Record<string, string> = {
   "super-resolution": "Super resolution",
   "restore-old-photo": "Restore old photo",
   "reference-guided-restore": "Reference-guided restore",
+  "smart-crop": "Smart crop",
   unknown: "Unknown",
 };
 
@@ -46,6 +47,11 @@ export function PromptBox({ value, onChange, intent, disabled }: PromptBoxProps)
               {t("prompt.confidence")}: {Math.round(intent.confidence * 100)}%
             </span>
           </div>
+          {intent.task === "smart-crop" && (
+            <p className="muted" style={{ marginTop: 6 }}>
+              {t("prompt.smartCropHint")}
+            </p>
+          )}
           {intent.warnings.map((w) => (
             <p key={w} className="muted" style={{ color: "var(--warn)", marginTop: 6 }}>
               ⚠ {w}

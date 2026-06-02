@@ -96,6 +96,8 @@ const HR: Dict = {
   "prompt.language": "Jezik",
   "prompt.reference": "Referenca",
   "prompt.confidence": "Pouzdanost",
+  "prompt.smartCropHint":
+    "💡 Pametni izrez locira opisani objekt i obreže sliku na njega. Najbolje radi s engleskim nazivom (npr. „person“, „cat“, „car“).",
 
   "suggest.title": "Predložene naredbe",
   "suggest.en": "Engleski",
@@ -301,6 +303,8 @@ const EN: Dict = {
   "prompt.language": "Language",
   "prompt.reference": "Reference",
   "prompt.confidence": "Confidence",
+  "prompt.smartCropHint":
+    "💡 Smart crop locates the described object and crops the photo to it. Works best with an English noun (e.g. \"person\", \"cat\", \"car\").",
 
   "suggest.title": "Suggested commands",
   "suggest.en": "English",

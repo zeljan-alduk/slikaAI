@@ -75,6 +75,19 @@ test("super-resolution mock runs and shows a result", async ({ page }) => {
   });
 });
 
+test("smart crop: prompt parses and mock run produces a result", async ({ page }) => {
+  await openApp(page);
+  await uploadSample(page);
+  await page.getByRole("textbox").fill("focus on the person");
+  await expect(page.getByText("Smart crop").first()).toBeVisible();
+  const start = page.getByRole("button", { name: "Start" });
+  await expect(start).toBeEnabled();
+  await start.click();
+  await expect(page.getByRole("heading", { name: "Before / after" })).toBeVisible({
+    timeout: 40_000,
+  });
+});
+
 test("theme toggle switches the document theme", async ({ page }) => {
   await openApp(page);
   const html = page.locator("html");

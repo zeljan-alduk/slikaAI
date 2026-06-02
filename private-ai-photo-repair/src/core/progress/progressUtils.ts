@@ -93,6 +93,14 @@ const TASK_STEPS: Record<RetouchTask, StepTemplate[]> = {
     { id: "preview", label: "Render before/after preview", description: "Rendering the preview.", weight: 1 },
     { id: "export", label: "Prepare export", description: "Preparing the export.", weight: 1 },
   ],
+  "smart-crop": [
+    { id: "decode", label: "Decode image", description: "Decoding image pixels.", weight: 1 },
+    { id: "resize", label: "Resize image", description: "Resizing to a safe working size.", weight: 1 },
+    { id: "ground", label: "Locate subject", description: "Locating the described subject.", weight: 3 },
+    { id: "crop", label: "Crop to subject", description: "Cropping to the subject.", weight: 1 },
+    { id: "preview", label: "Render before/after preview", description: "Rendering the preview.", weight: 1 },
+    { id: "export", label: "Prepare export", description: "Preparing the export.", weight: 1 },
+  ],
   unknown: GENERAL_STEPS,
 };
 
