@@ -31,6 +31,30 @@ const TASK_RULES: TaskRule[] = [
     ],
   },
   {
+    // Text-guided localisation/crop. Kept after background-removal so that
+    // "cut out the background" still maps to removal, not cropping.
+    task: "smart-crop",
+    keywords: [
+      "smart crop",
+      "crop to",
+      "crop around",
+      "focus on",
+      "find the",
+      "locate the",
+      "zoom in on",
+      "frame the",
+      "izrezi oko",
+      "izrezi na",
+      "kadriraj",
+      "fokusiraj na",
+      "fokusiraj",
+      "pronadi",
+      "lociraj",
+      "zumiraj na",
+      "zumiraj",
+    ],
+  },
+  {
     task: "super-resolution",
     keywords: [
       "upscale",
@@ -272,4 +296,112 @@ export function parseRetouchPrompt(prompt: string): RetouchIntent {
     confidence,
     warnings,
   };
+}
+
+// Trigger phrases that introduce the subject for smart-crop; the words after
+// them name the thing to locate. Listed longest-first so the most specific
+// match wins.
+const SMART_CROP_TRIGGERS = [
+  "zoom in on",
+  "crop around",
+  "smart crop",
+  "locate the",
+  "frame the",
+  "fokusiraj na",
+  "crop to",
+  "focus on",
+  "find the",
+  "izrezi oko",
+  "izrezi na",
+  "zumiraj na",
+  "kadriraj",
+  "fokusiraj",
+  "pronadi",
+  "lociraj",
+  "zumiraj",
+];
+
+// Filler words to drop from the front of an extracted subject.
+const SUBJECT_FILLERS = new Set(["the", "a", "an", "na", "u", "oko", "sliku", "fotografiju"]);
+
+// Minimal Croatian→English noun map. Florence-2 is English-trained, so mapping
+// common subjects sharply improves grounding for Croatian prompts. Keyed by a
+// diacritic-stripped stem; matched as a prefix to tolerate case endings.
+const HR_EN_NOUNS: Array<[string, string]> = [
+  ["osob", "person"],
+  ["covjek", "person"],
+  ["ljud", "people"],
+  ["lice", "face"],
+  ["lica", "face"],
+  ["glav", "head"],
+  ["zen", "woman"],
+  ["muskar", "man"],
+  ["djecak", "boy"],
+  ["djevojc", "girl"],
+  ["dijet", "child"],
+  ["djet", "child"],
+  ["beb", "baby"],
+  ["pas", "dog"],
+  ["psa", "dog"],
+  ["mack", "cat"],
+  ["ptic", "bird"],
+  ["konj", "horse"],
+  ["auto", "car"],
+  ["automobil", "car"],
+  ["bicikl", "bicycle"],
+  ["motor", "motorcycle"],
+  ["cvijet", "flower"],
+  ["cvijec", "flowers"],
+  ["drvo", "tree"],
+  ["stabl", "tree"],
+  ["kuc", "house"],
+  ["zgrad", "building"],
+  ["planin", "mountain"],
+  ["more", "sea"],
+  ["nebo", "sky"],
+  ["sunc", "sun"],
+  ["hran", "food"],
+  ["stol", "table"],
+  ["stolic", "table"],
+  ["knjig", "book"],
+  ["telefon", "phone"],
+  ["mobitel", "phone"],
+  ["casa", "glass"],
+  ["naocal", "glasses"],
+  ["sesir", "hat"],
+];
+
+function mapHrNoun(token: string): string {
+  for (const [stem, en] of HR_EN_NOUNS) {
+    if (token.startsWith(stem)) return en;
+  }
+  return token;
+}
+
+/**
+ * Extract the subject phrase to ground for a smart-crop prompt — the words
+ * after a trigger like "find the" / "fokusiraj na" — and translate common
+ * Croatian nouns to English (Florence-2's language). Returns a phrase suitable
+ * for Florence-2 phrase grounding, or an empty string if none can be derived.
+ */
+export function extractGroundingQuery(prompt: string): string {
+  const normalized = normalize(prompt);
+  if (!normalized) return "";
+
+  let subject = normalized;
+  for (const trigger of SMART_CROP_TRIGGERS) {
+    const idx = normalized.indexOf(trigger);
+    if (idx !== -1) {
+      subject = normalized.slice(idx + trigger.length).trim();
+      break;
+    }
+  }
+
+  let tokens = subject.split(" ").filter((t) => t.length > 0);
+  while (tokens.length > 0 && SUBJECT_FILLERS.has(tokens[0]!)) {
+    tokens = tokens.slice(1);
+  }
+  if (tokens.length === 0) return "";
+
+  return tokens.map(mapHrNoun).join(" ").trim();
 }

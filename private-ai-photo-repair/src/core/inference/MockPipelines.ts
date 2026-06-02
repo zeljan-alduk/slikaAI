@@ -184,6 +184,27 @@ export function mockBackgroundRemoval(
   return out;
 }
 
+/**
+ * Smart-crop mock: without a real grounding model we can't locate the named
+ * subject, so we crop to a centred region as a clearly-labelled placeholder.
+ */
+export function mockSmartCrop(input: ImageData, signal?: AbortSignal): ImageData {
+  throwIfAborted(signal);
+  const { width, height } = input;
+  const w = Math.max(1, Math.round(width * 0.65));
+  const h = Math.max(1, Math.round(height * 0.65));
+  const x = Math.floor((width - w) / 2);
+  const y = Math.floor((height - h) / 2);
+  const out = new ImageData(w, h);
+  for (let row = 0; row < h; row += 1) {
+    if ((row & 63) === 0) throwIfAborted(signal);
+    const srcStart = ((y + row) * width + x) * 4;
+    const dstStart = row * w * 4;
+    out.data.set(input.data.subarray(srcStart, srcStart + w * 4), dstStart);
+  }
+  return out;
+}
+
 /** High-quality canvas upscale used by the super-resolution mock. */
 export function mockUpscaleTile(input: ImageData, scale: number): ImageData {
   return drawScaled(

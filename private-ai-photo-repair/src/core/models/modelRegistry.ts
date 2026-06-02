@@ -121,6 +121,26 @@ export const MODEL_REGISTRY: ModelRegistryEntry[] = [
     enabled: true,
     mockAvailable: true,
   },
+  {
+    id: "smart-crop-florence2-v1",
+    name: "Smart Crop (Florence-2)",
+    task: "smart-crop",
+    description:
+      "Describe a subject in words; a vision-language model locates it and crops the photo to it.",
+    modelUrl: envUrl(import.meta.env.VITE_SMART_CROP_MODEL_URL),
+    transformersModelId: "onnx-community/Florence-2-base-ft",
+    version: "1.0.0",
+    // Florence-2-base in quantized ONNX form is a few hundred MB across its
+    // encoder/decoder/vision sub-models; it runs on mobile via WebAssembly.
+    estimatedSizeMb: 340,
+    expectedInputSize: { width: 768, height: 768 },
+    minimumTier: "low",
+    preferredBackend: "wasm",
+    supportsTiling: false,
+    supportsReferenceImages: false,
+    enabled: true,
+    mockAvailable: true,
+  },
 ];
 
 export function getModelById(id: string): ModelRegistryEntry | null {

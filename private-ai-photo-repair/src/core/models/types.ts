@@ -7,6 +7,7 @@ export type RetouchTask =
   | "super-resolution"
   | "restore-old-photo"
   | "reference-guided-restore"
+  | "smart-crop"
   | "unknown";
 
 export type InferenceEngine = "onnx" | "transformers" | "mock";
