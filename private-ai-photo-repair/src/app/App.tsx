@@ -6,6 +6,7 @@ import { ImageUploader } from "../components/ImageUploader";
 import { ReferenceImageUploader } from "../components/ReferenceImageUploader";
 import { PromptBox } from "../components/PromptBox";
 import { SuggestedCommandChips } from "../components/SuggestedCommandChips";
+import { GenerativeEngineCard } from "../components/GenerativeEngineCard";
 import { ModelRequirementCard } from "../components/ModelRequirementCard";
 import { DownloadProgressCard } from "../components/DownloadProgressCard";
 import { ModelLoadProgressCard } from "../components/ModelLoadProgressCard";
@@ -26,16 +27,40 @@ export function App(): JSX.Element {
       : null;
 
   const taskRecognised = !!c.intent && c.intent.task !== "unknown" && !!c.selection?.model;
+  // For the generative-edit task the cloud engine bypasses model download, and
+  // an unavailable engine (e.g. cloud chosen without consent) blocks the run.
+  const genEngine = c.generativeDecision?.engine ?? null;
+  const genUsesCloud = c.isGenerativeTask && genEngine === "cloud";
+  const genBlocked = c.isGenerativeTask && genEngine === null;
   const needsDownload =
-    !!c.plan && !c.plan.useMock && !c.selectedModelCached;
+    !!c.plan && !c.plan.useMock && !c.selectedModelCached && !genUsesCloud;
   const canStart =
-    !!c.mainImage && taskRecognised && !needsDownload && !c.isBusy && c.tier !== "unsupported";
+    !!c.mainImage &&
+    taskRecognised &&
+    !needsDownload &&
+    !genBlocked &&
+    !c.isBusy &&
+    c.tier !== "unsupported";
 
   const startHint = (() => {
     if (!c.mainImage) return "Upload a main photo to begin.";
     if (!taskRecognised) return "Enter or pick a command so the task can be recognised.";
-    if (needsDownload) return "Download the required model before processing.";
     if (c.tier === "unsupported") return "This device does not support local AI processing.";
+    if (genBlocked) {
+      return (
+        c.generativeDecision?.blockedReason ??
+        "Pick an available generative engine (enable cloud consent or configure a local model)."
+      );
+    }
+    if (genUsesCloud) {
+      return c.generativeDecision?.simulated
+        ? "Ready. Cloud generative edit (image leaves the device)."
+        : "Ready. This generative edit runs in the cloud (image leaves the device).";
+    }
+    if (needsDownload) return "Download the required model before processing.";
+    if (c.isGenerativeTask && c.generativeDecision?.simulated) {
+      return "Ready. On-device generative edit runs as a clearly-labelled simulation.";
+    }
     return c.plan?.useMock
       ? "Ready. This task will run in mock mode (simulated)."
       : "Ready to process locally.";
@@ -77,9 +102,21 @@ export function App(): JSX.Element {
         disabled={c.isBusy}
       />
 
+      {c.isGenerativeTask && (
+        <GenerativeEngineCard
+          decision={c.generativeDecision}
+          preference={c.enginePreference}
+          onPreferenceChange={c.setEnginePreference}
+          cloudConsent={c.cloudConsent}
+          onCloudConsentChange={c.setCloudConsent}
+          cloudConfigured={c.cloudConfigured}
+          disabled={c.isBusy}
+        />
+      )}
+
       <ModelRequirementCard
-        model={c.selection?.model ?? null}
-        plan={c.plan}
+        model={genUsesCloud ? null : c.selection?.model ?? null}
+        plan={genUsesCloud ? null : c.plan}
         cached={c.selectedModelCached}
         freeStorageBytes={freeStorageBytes}
         onDownload={() => void c.downloadModel()}

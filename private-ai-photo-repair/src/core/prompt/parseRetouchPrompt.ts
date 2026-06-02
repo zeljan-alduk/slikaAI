@@ -113,6 +113,46 @@ const TASK_RULES: TaskRule[] = [
       "ocisti",
     ],
   },
+  // Generative editing ("describe any edit"). Deliberately last so specific
+  // tasks win first; these free-form verbs are the catch-all for edits that
+  // add, remove, replace or restyle content and need a diffusion-class model.
+  {
+    task: "generative-edit",
+    keywords: [
+      "add a",
+      "add an",
+      "add some",
+      "remove the",
+      "remove this",
+      "replace",
+      "change the",
+      "change his",
+      "change her",
+      "turn into",
+      "turn it into",
+      "turn the",
+      "make it look",
+      "make the",
+      "put a",
+      "put an",
+      "in the style of",
+      "wearing",
+      "generate",
+      "dodaj",
+      "zamijeni",
+      "promijeni",
+      "promjeni",
+      "pretvori",
+      "ukloni objekt",
+      "makni objekt",
+      "obrisi osobu",
+      "ukloni osobu",
+      "obuci",
+      "stavi",
+      "u stilu",
+      "neka nosi",
+    ],
+  },
 ];
 
 const STRENGTH_LOW = ["slight", "light", "subtle", "malo", "lagano", "njezno", "blago"];
@@ -163,6 +203,12 @@ const HR_MARKERS = [
   "ukloni",
   "makni",
   "popravi",
+  "dodaj",
+  "zamijeni",
+  "promijeni",
+  "pretvori",
+  "objekt",
+  "obuci",
 ];
 
 function stripDiacritics(input: string): string {

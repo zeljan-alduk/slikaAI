@@ -15,6 +15,7 @@ export const SUGGESTED_COMMANDS_HR: SuggestedCommand[] = [
   { label: "Povećaj rezoluciju 2x", prompt: "povećaj rezoluciju 2x", task: "super-resolution", language: "hr" },
   { label: "Popravi staru fotografiju", prompt: "popravi staru fotografiju", task: "restore-old-photo", language: "hr" },
   { label: "Popravi lice prema referenci", prompt: "popravi lice prema referenci", task: "reference-guided-restore", language: "hr" },
+  { label: "Generativno uređivanje", prompt: "dodaj sunčane naočale", task: "generative-edit", language: "hr" },
 ];
 
 export const SUGGESTED_COMMANDS_EN: SuggestedCommand[] = [
@@ -25,6 +26,7 @@ export const SUGGESTED_COMMANDS_EN: SuggestedCommand[] = [
   { label: "Upscale 2x", prompt: "upscale 2x", task: "super-resolution", language: "en" },
   { label: "Restore old photo", prompt: "restore old photo", task: "restore-old-photo", language: "en" },
   { label: "Restore face using reference", prompt: "restore face using reference", task: "reference-guided-restore", language: "en" },
+  { label: "Generative edit", prompt: "add sunglasses", task: "generative-edit", language: "en" },
 ];
 
 export const ALL_SUGGESTED_COMMANDS: SuggestedCommand[] = [

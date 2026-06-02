@@ -259,6 +259,48 @@ function luminancePercentiles(
   return { lo, hi };
 }
 
+/**
+ * Mock generative edit. A real generative edit needs a diffusion-class model
+ * (local WebGPU or cloud); this on-device fallback CANNOT add or replace
+ * content, so it applies a deterministic, clearly-labelled "creative" grade
+ * (enhanced contrast/saturation + warm cinematic tone + soft vignette) so the
+ * before/after flow stays meaningful. It is always marked as simulated.
+ */
+export function mockGenerativeEdit(
+  input: ImageData,
+  strength: IntentStrength,
+  signal?: AbortSignal,
+): ImageData {
+  throwIfAborted(signal);
+  const f = STRENGTH_FACTOR[strength];
+  // Start from an enhanced base, then apply a warm cinematic grade + vignette.
+  const base = mockEnhance(input, strength);
+  const { width, height } = base;
+  const out = cloneImageData(base);
+  const px = out.data;
+  const cx = width / 2;
+  const cy = height / 2;
+  const maxDist = Math.sqrt(cx * cx + cy * cy) || 1;
+  for (let y = 0; y < height; y += 1) {
+    if ((y & 63) === 0) throwIfAborted(signal);
+    for (let x = 0; x < width; x += 1) {
+      const i = (y * width + x) * 4;
+      // Warm grade: lift reds, gently cool blues.
+      px[i] = clamp8(px[i]! + 10 * f);
+      px[i + 2] = clamp8(px[i + 2]! - 6 * f);
+      // Soft vignette toward the edges.
+      const nx = x - cx;
+      const ny = y - cy;
+      const dist = Math.sqrt(nx * nx + ny * ny) / maxDist;
+      const vignette = 1 - 0.28 * f * Math.max(0, dist - 0.55);
+      px[i] = clamp8(px[i]! * vignette);
+      px[i + 1] = clamp8(px[i + 1]! * vignette);
+      px[i + 2] = clamp8(px[i + 2]! * vignette);
+    }
+  }
+  return out;
+}
+
 /** Detect whether an image is effectively grayscale. */
 export function isGrayscale(data: ImageData): boolean {
   const px = data.data;

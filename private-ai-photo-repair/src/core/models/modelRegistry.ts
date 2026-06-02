@@ -113,6 +113,23 @@ export const MODEL_REGISTRY: ModelRegistryEntry[] = [
     enabled: true,
     mockAvailable: true,
   },
+  {
+    id: "generative-edit-v1",
+    name: "Generative Edit (hybrid)",
+    task: "generative-edit",
+    description:
+      "Describe any edit. Runs on-device (WebGPU) when a local model is configured, or via an opt-in cloud endpoint. Falls back to a clearly-labelled on-device simulation.",
+    modelUrl: envUrl(import.meta.env.VITE_GENERATIVE_EDIT_MODEL_URL),
+    version: "1.0.0",
+    estimatedSizeMb: 1600,
+    expectedInputSize: { width: 1024, height: 1024 },
+    minimumTier: "high",
+    preferredBackend: "webgpu",
+    supportsTiling: false,
+    supportsReferenceImages: false,
+    enabled: true,
+    mockAvailable: true,
+  },
 ];
 
 export function getModelById(id: string): ModelRegistryEntry | null {

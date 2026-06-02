@@ -93,6 +93,15 @@ const TASK_STEPS: Record<RetouchTask, StepTemplate[]> = {
     { id: "preview", label: "Render before/after preview", description: "Rendering the preview.", weight: 1 },
     { id: "export", label: "Prepare export", description: "Preparing the export.", weight: 1 },
   ],
+  "generative-edit": [
+    { id: "decode", label: "Decode image", description: "Decoding image pixels.", weight: 1 },
+    { id: "select-engine", label: "Select engine (local/cloud)", description: "Choosing the local or cloud generative engine.", weight: 1 },
+    { id: "prepare", label: "Prepare image + prompt", description: "Preparing the image and edit instruction.", weight: 1 },
+    { id: "run", label: "Run generative edit", description: "Running the generative edit.", weight: 4 },
+    { id: "compose", label: "Compose edited image", description: "Composing the edited image.", weight: 1 },
+    { id: "preview", label: "Render before/after preview", description: "Rendering the preview.", weight: 1 },
+    { id: "export", label: "Prepare export", description: "Preparing the export.", weight: 1 },
+  ],
   unknown: GENERAL_STEPS,
 };
 

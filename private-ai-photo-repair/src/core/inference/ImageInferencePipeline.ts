@@ -18,6 +18,7 @@ import {
   mockBackgroundRemoval,
   mockUpscaleTile,
   mockRestoreOldPhoto,
+  mockGenerativeEdit,
   isGrayscale,
   throwIfAborted,
   CancelledError,
@@ -95,6 +96,9 @@ export async function runPipeline(
         break;
       case "reference-guided-restore":
         result = await runReferenceGuided(input, tracker, log, warnings);
+        break;
+      case "generative-edit":
+        result = await runGenerativeEdit(input, tracker, log, warnings);
         break;
       default:
         throw new Error(`Unsupported task: ${task}`);
@@ -363,6 +367,35 @@ async function runReferenceGuided(
     }
   }
   tracker.advanceTo("blend", "Blending restored face/photo naturally…");
+  throwIfAborted(input.signal);
+  return result;
+}
+
+/**
+ * Local generative edit. The worker only ever runs the LOCAL engine (the cloud
+ * engine is handled on the main thread because it uploads the image). When a
+ * real on-device model is configured it runs through the ONNX path; otherwise
+ * it produces a clearly-labelled simulated edit.
+ */
+async function runGenerativeEdit(
+  input: PipelineRunInput,
+  tracker: ProgressTracker,
+  log: Logger,
+  warnings: string[],
+): Promise<ImageData> {
+  const working = prepareWorking(input, tracker, log, warnings, "decode", "prepare");
+  tracker.advanceTo("select-engine", "Using the on-device generative engine…");
+  throwIfAborted(input.signal);
+  tracker.advanceTo("run", "Running generative edit locally…");
+  log.info(`Generative edit instruction: "${input.intent.originalPrompt}".`);
+  let result = await maybeRealInference(input, working, log);
+  if (!result) {
+    result = mockGenerativeEdit(working, input.intent.strength, input.signal);
+    warnings.push(
+      "Generative editing is simulated on-device here: this fallback applies a creative grade and cannot add or replace content. Configure a local WebGPU model or enable the opt-in cloud engine for real generative edits.",
+    );
+  }
+  tracker.advanceTo("compose", "Composing edited image…");
   throwIfAborted(input.signal);
   return result;
 }

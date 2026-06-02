@@ -119,6 +119,9 @@ export function runInferenceInWorker(
                 processingDurationMs: p.processingDurationMs,
                 usedBackend: p.usedBackend,
                 usedMock: p.usedMock,
+                // The worker only ever runs the local, on-device engine.
+                engine: "local",
+                privacy: "on-device",
                 warnings: p.warnings,
                 // imageData is attached for re-export; see resultImageData map.
               });
@@ -178,6 +181,15 @@ export function runInferenceInWorker(
 const resultImageData = new Map<string, ImageData>();
 
 function attachImageData(taskId: string, data: ImageData): void {
+  resultImageData.set(taskId, data);
+}
+
+/**
+ * Attach result ImageData for a task that did not run through the worker (e.g.
+ * the cloud generative path), so the export panel can re-encode to other
+ * formats without re-running.
+ */
+export function setResultImageData(taskId: string, data: ImageData): void {
   resultImageData.set(taskId, data);
 }
 

@@ -79,6 +79,13 @@ export function BeforeAfterPreview({ beforeAsset, result }: BeforeAfterPreviewPr
         </p>
       )}
 
+      {result.privacy === "leaves-device" && (
+        <p className="muted" style={{ color: "var(--warn)", marginTop: 8 }}>
+          ⚠ This edit ran in the cloud: the image was uploaded to the configured
+          endpoint and left your device.
+        </p>
+      )}
+
       <div className="kv-grid" style={{ marginTop: 10 }}>
         <div className="kv">
           <span className="k">Original</span>
@@ -93,8 +100,14 @@ export function BeforeAfterPreview({ beforeAsset, result }: BeforeAfterPreviewPr
           <span className="v">{result.mimeType}</span>
         </div>
         <div className="kv">
-          <span className="k">Backend</span>
-          <span className="v">{backendLabel(result.usedBackend)}</span>
+          <span className="k">Engine</span>
+          <span className="v">
+            {result.engine === "cloud"
+              ? "Cloud endpoint (left device)"
+              : result.usedMock
+                ? `On-device · ${backendLabel(result.usedBackend)} (simulated)`
+                : `On-device · ${backendLabel(result.usedBackend)}`}
+          </span>
         </div>
         <div className="kv">
           <span className="k">Duration</span>

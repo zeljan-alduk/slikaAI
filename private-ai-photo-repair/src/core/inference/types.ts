@@ -19,6 +19,10 @@ export interface InferenceResult {
   processingDurationMs: number;
   usedBackend: InferenceBackend;
   usedMock: boolean;
+  /** Where the work ran: on-device worker ("local") or an opt-in cloud endpoint ("cloud"). */
+  engine: "local" | "cloud";
+  /** Privacy posture of this result: stayed on-device or left the device. */
+  privacy: "on-device" | "leaves-device";
   warnings: string[];
 }
 

@@ -7,6 +7,7 @@ export type RetouchTask =
   | "super-resolution"
   | "restore-old-photo"
   | "reference-guided-restore"
+  | "generative-edit"
   | "unknown";
 
 export interface ModelRegistryEntry {

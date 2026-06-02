@@ -39,6 +39,7 @@ import {
   runInferenceInWorker,
   ProcessingCancelledError,
   getResultImageData,
+  setResultImageData,
   clearResultImageData,
   type RunInferenceHandle,
 } from "../workers/workerClient";
@@ -47,7 +48,22 @@ import {
   buildExportFilename,
   defaultFormatForTask,
 } from "../core/image/imageExport";
-import { imageDataToCanvas, canvasToBlobSafe } from "../core/image/canvasUtils";
+import {
+  imageDataToCanvas,
+  canvasToBlobSafe,
+  imageDataFromBitmap,
+} from "../core/image/canvasUtils";
+import {
+  selectGenerativeEngine,
+  readGenerativeConfig,
+  type EnginePreference,
+  type GenerativeEngineDecision,
+} from "../core/generative/engineSelector";
+import {
+  runCloudEdit,
+  CloudEditCancelledError,
+} from "../core/generative/cloudEditClient";
+import { ProgressTracker } from "../core/progress/progressTracker";
 
 export type AppPhase =
   | "detecting"
@@ -93,6 +109,13 @@ export interface AppController {
   cachedModels: CachedModelInfo[];
   settings: AppSettings;
 
+  // hybrid generative editing
+  isGenerativeTask: boolean;
+  enginePreference: EnginePreference;
+  cloudConsent: boolean;
+  cloudConfigured: boolean;
+  generativeDecision: GenerativeEngineDecision | null;
+
   // progress
   downloadProgress: DownloadProgress | null;
   modelLoadProgress: ModelLoadProgress | null;
@@ -115,6 +138,8 @@ export interface AppController {
   removeReference: (id: string) => void;
   setReferenceType: (id: string, type: ReferenceType) => void;
   setPrompt: (value: string) => void;
+  setEnginePreference: (pref: EnginePreference) => void;
+  setCloudConsent: (consent: boolean) => void;
   downloadModel: () => Promise<void>;
   cancelDownload: () => void;
   startProcessing: () => Promise<void>;
@@ -157,9 +182,15 @@ export function useAppController(): AppController {
   const [phase, setPhase] = useState<AppPhase>("detecting");
   const [error, setError] = useState<string | null>(null);
 
+  const [enginePreference, setEnginePreference] = useState<EnginePreference>("auto");
+  const [cloudConsent, setCloudConsent] = useState(false);
+
   const downloadAbortRef = useRef<AbortController | null>(null);
   const processingHandleRef = useRef<RunInferenceHandle | null>(null);
+  const cloudAbortRef = useRef<AbortController | null>(null);
   const resultUrlRef = useRef<string | null>(null);
+
+  const generativeConfig = useMemo(() => readGenerativeConfig(), []);
 
   const log = useCallback((entry: PipelineLogEntry) => {
     setLogs((prev) => {
@@ -190,6 +221,20 @@ export function useAppController(): AppController {
     () => (tier ? maxInputSizeForTier(tier) : 1024),
     [tier],
   );
+
+  const isGenerativeTask = intent?.task === "generative-edit";
+
+  // Hybrid engine decision for the generative-edit task (local vs cloud).
+  const generativeDecision = useMemo<GenerativeEngineDecision | null>(() => {
+    if (!isGenerativeTask || !backend) return null;
+    return selectGenerativeEngine({
+      preference: enginePreference,
+      deviceBackend: backend,
+      webgpuSupported: capabilities?.webgpuSupported ?? false,
+      cloudConsented: cloudConsent,
+      config: generativeConfig,
+    });
+  }, [isGenerativeTask, backend, enginePreference, capabilities, cloudConsent, generativeConfig]);
 
   // Initial capability detection + settings + cache load.
   useEffect(() => {
@@ -392,12 +437,121 @@ export function useAppController(): AppController {
     [logMessage],
   );
 
+  // Cloud generative-edit path. Unlike the worker path this runs on the main
+  // thread because the image is uploaded to a configured endpoint. It is only
+  // reached after the hybrid selector resolves to the consented cloud engine.
+  const runCloudGenerativeEdit = useCallback(
+    async (taskId: string): Promise<void> => {
+      if (!mainImage || !intent || !backend) return;
+      const controller = new AbortController();
+      cloudAbortRef.current = controller;
+      const tracker = new ProgressTracker(taskId, "generative-edit", setProcessingProgress);
+      setPhase("processing");
+      tracker.start();
+      tracker.advanceTo("decode", "Preparing image…");
+      tracker.advanceTo("select-engine", "Using the opt-in cloud generative engine…");
+      tracker.advanceTo("prepare", "Preparing image + prompt…");
+      logMessage("info", "inference-worker", "Generative edit running via cloud engine (image leaves the device).");
+
+      try {
+        tracker.advanceTo("run", "Running generative edit in the cloud…");
+        const cloud = await runCloudEdit({
+          image: mainImage.file,
+          prompt: intent.originalPrompt,
+          locale: intent.language === "hr" ? "hr" : "en",
+          imageW: mainImage.width,
+          imageH: mainImage.height,
+          signal: controller.signal,
+          onStatus: (message) => tracker.message(message),
+        });
+
+        tracker.advanceTo("compose", "Composing edited image…");
+        const bitmap = await createImageBitmap(cloud.blob);
+        const imageData = imageDataFromBitmap(bitmap);
+        bitmap.close();
+        setResultImageData(taskId, imageData);
+
+        const warnings = [
+          "This generative edit ran in the cloud: the image left your device for this edit.",
+        ];
+        if (cloud.promptUsed && cloud.promptUsed !== intent.originalPrompt) {
+          warnings.push(`The cloud model used a translated prompt: "${cloud.promptUsed}".`);
+        }
+
+        if (resultUrlRef.current) URL.revokeObjectURL(resultUrlRef.current);
+        const outputObjectUrl = URL.createObjectURL(cloud.blob);
+        resultUrlRef.current = outputObjectUrl;
+
+        tracker.advanceTo("preview", "Rendering before/after preview…");
+        tracker.advanceTo("export", "Preparing export…");
+        tracker.finish();
+
+        setResult({
+          taskId,
+          taskType: "generative-edit",
+          outputBlob: cloud.blob,
+          outputObjectUrl,
+          mimeType: cloud.mimeType,
+          width: imageData.width,
+          height: imageData.height,
+          processingDurationMs: 0,
+          usedBackend: backend,
+          usedMock: false,
+          engine: "cloud",
+          privacy: "leaves-device",
+          warnings,
+        });
+        setPhase("done");
+      } catch (err) {
+        if (err instanceof CloudEditCancelledError || controller.signal.aborted) {
+          tracker.cancel();
+          logMessage("warn", "inference-worker", "Cloud generative edit cancelled.");
+          setPhase("ready");
+        } else {
+          const message = err instanceof Error ? err.message : "Cloud generative edit failed.";
+          tracker.fail(message);
+          setError(message);
+          logMessage("error", "inference-worker", message);
+          setPhase("error");
+        }
+      } finally {
+        cloudAbortRef.current = null;
+      }
+    },
+    [mainImage, intent, backend, logMessage],
+  );
+
   const startProcessing = useCallback(async () => {
     if (!mainImage || !selection?.model || !plan || !intent || !backend || !tier) {
       setError("Add an image and a recognised prompt before processing.");
       return;
     }
     const model = selection.model;
+
+    // Hybrid generative editing: route to the chosen engine.
+    if (intent.task === "generative-edit") {
+      const decision = selectGenerativeEngine({
+        preference: enginePreference,
+        deviceBackend: backend,
+        webgpuSupported: capabilities?.webgpuSupported ?? false,
+        cloudConsented: cloudConsent,
+        config: generativeConfig,
+      });
+      if (!decision.engine) {
+        setError(decision.blockedReason ?? decision.reason);
+        return;
+      }
+      if (decision.engine === "cloud") {
+        setError(null);
+        setResult(null);
+        setTileProgress(null);
+        taskCounter += 1;
+        const cloudTaskId = `task_${Date.now().toString(36)}_${taskCounter}`;
+        await runCloudGenerativeEdit(cloudTaskId);
+        return;
+      }
+      // decision.engine === "local" → fall through to the worker path below.
+    }
 
     // Real models must be cached before running.
     if (!plan.useMock && !(await modelCache.isModelCached(model.id))) {
@@ -470,10 +624,16 @@ export function useAppController(): AppController {
     log,
     logMessage,
     refreshCachedModels,
+    enginePreference,
+    capabilities,
+    cloudConsent,
+    generativeConfig,
+    runCloudGenerativeEdit,
   ]);
 
   const cancelProcessing = useCallback(() => {
     processingHandleRef.current?.cancel();
+    cloudAbortRef.current?.abort();
   }, []);
 
   const deleteModel = useCallback(
@@ -571,7 +731,7 @@ export function useAppController(): AppController {
       logMessage(
         "info",
         "postprocessor",
-        `Result ready: ${result.width}x${result.height}, ${result.usedMock ? "mock" : result.usedBackend}.`,
+        `Result ready: ${result.width}x${result.height}, ${result.engine === "cloud" ? "cloud" : result.usedMock ? "mock" : result.usedBackend}.`,
       );
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -603,6 +763,11 @@ export function useAppController(): AppController {
     selectedModelCached,
     cachedModels,
     settings,
+    isGenerativeTask,
+    enginePreference,
+    cloudConsent,
+    cloudConfigured: generativeConfig.cloudEndpointConfigured,
+    generativeDecision,
     downloadProgress,
     modelLoadProgress,
     processingProgress,
@@ -618,6 +783,8 @@ export function useAppController(): AppController {
     removeReference,
     setReferenceType,
     setPrompt,
+    setEnginePreference,
+    setCloudConsent,
     downloadModel,
     cancelDownload,
     startProcessing,

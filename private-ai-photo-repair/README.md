@@ -162,8 +162,40 @@ processing on the worker's `OffscreenCanvas`:
 - **reference-guided-restore** — analyses references (quality/face heuristics)
   and applies restoration. **It never performs face-swapping** and clearly
   labels results as simulated.
+- **generative-edit** — applies a deterministic creative grade (enhanced
+  contrast/saturation + warm cinematic tone + soft vignette). It **cannot add
+  or replace content** and is always labelled as a simulation; real generative
+  editing needs the local WebGPU model or the opt-in cloud engine (see below).
 
 Every mock result is labelled “generated in mock mode”.
+
+---
+
+## Hybrid generative editing
+
+“Describe any edit” (the **generative-edit** task) needs a diffusion-class
+model. There is no small generative editor that runs well in a phone browser,
+so this task is deliberately **hybrid**, and you choose the engine per edit:
+
+| Engine | Privacy | Runs on | Configure |
+| --- | --- | --- | --- |
+| **On-device** | 100% private — image never leaves the device | WebGPU-capable machines | `VITE_GENERATIVE_EDIT_MODEL_URL` (ONNX). Blank → clearly-labelled simulation. |
+| **Cloud (opt-in)** | Image **leaves the device** | Any device, incl. phones | `VITE_CLOUD_EDIT_ENDPOINT` (default contract = this repo's `/api/edit`, FLUX Kontext). |
+
+How it works:
+
+- `selectGenerativeEngine()` (`core/generative/engineSelector.ts`) is a pure,
+  deterministic function that picks **local** vs **cloud** from the device
+  capabilities, the user's preference (Auto / On-device / Cloud) and consent.
+  In **Auto** it prefers a real on-device model, then a consented cloud
+  endpoint, then the on-device simulation.
+- The **cloud engine is strictly opt-in**: it is only reachable after the user
+  ticks an explicit consent checkbox acknowledging that the image is uploaded.
+  Without a configured endpoint *and* consent, the cloud engine is unavailable.
+- The on-device engine runs through the normal Web Worker pipeline; the cloud
+  engine runs on the main thread (`core/generative/cloudEditClient.ts`) because
+  it uploads the image. Both produce the same before/after result, and the
+  result is tagged with its **engine** and **privacy** posture in the UI.
 
 ---
 
@@ -176,6 +208,10 @@ Every mock result is labelled “generated in mock mode”.
 - Reference-guided restoration is for **restoring the same person** using better
   references — not replacing identities. Identity-preserving restoration
   requires a real compatible model.
+- Generative editing is the **one** task that can send your image off-device,
+  and only via the **opt-in cloud engine** after explicit consent. The default
+  (and the on-device path) keeps everything local; the cloud result is clearly
+  labelled “left your device”.
 
 ---
 
